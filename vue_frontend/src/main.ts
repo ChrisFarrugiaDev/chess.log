@@ -1,4 +1,5 @@
 import './assets/main.css';
+import "vue3-select-component/styles";
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';

@@ -60,4 +60,5 @@ Scaffolding project in /home/foxcodenine/foxfiles/git/chrisfarrugia.dev/chess.lo
 
 ```bash
 npm install sass@latest sass-loader@latest
+npm install -D sass-embedded
 ```

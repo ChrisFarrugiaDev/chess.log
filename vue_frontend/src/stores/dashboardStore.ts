@@ -7,7 +7,7 @@ export const useDashboardStore = defineStore('dashboardStore', () => {
 
 	// ---- State ------------------------------------------------------
 
-	const isUserMenuOpen = ref(false);
+	const isMenuOpen = ref(false);
 	const isLoading = ref(false);
 
 	type Theme = 'light' | 'dark' ;
@@ -21,8 +21,8 @@ export const useDashboardStore = defineStore('dashboardStore', () => {
 
 	// ---- Getters ----------------------------------------------------
 
-	const getIsUserMenuOpen = computed(()=>{
-		return isUserMenuOpen.value;
+	const getIsMenuOpen = computed(()=>{
+		return isMenuOpen.value;
 	});
 
 	const getIsLoading = computed(() => isLoading.value )
@@ -43,13 +43,13 @@ export const useDashboardStore = defineStore('dashboardStore', () => {
 
 	}
 
-	function toggleUserMenuState() {
+	function toggleMenuState() {
 
-		isUserMenuOpen.value = !isUserMenuOpen.value;
+		isMenuOpen.value = !isMenuOpen.value;
 	}
 
 	function updateUserMenuState(val: boolean) {
-		isUserMenuOpen.value = val;
+		isMenuOpen.value = val;
 	}
 
 	function setIsLoading(val: boolean) {
@@ -58,8 +58,8 @@ export const useDashboardStore = defineStore('dashboardStore', () => {
 
 	// - Expose --------------------------------------------------------
 	return {
-		getIsUserMenuOpen,
-		toggleUserMenuState,
+		getIsMenuOpen,
+		toggleMenuState,
 		updateUserMenuState,
 		getIsLoading,
 		setIsLoading,

@@ -20,7 +20,7 @@
         </div>
         <div class="sidebar__item" @click="goToView('gameCreateView')">
             <svg class="sidebar__svg ">
-                <use xlink:href="@/ui/svg/sprite.svg#icon-rock"></use>
+                <use xlink:href="@/ui/svg/sprite.svg#icon-king-rock"></use>
             </svg>
         </div>
 

@@ -1,7 +1,24 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import axios from '@/axios';
+import type { Game } from '@/types/game.type';
+import type { Move } from '@/types/move.type';
+
+
+declare global {
+    interface Window {
+        GO_DOCKERIZED: boolean | undefined;
+        GO_APP_URL: string;
+    }
+}
+
 
 export const useChessLogStore = defineStore('chessLogStore', () => {
+
+    const appUrl = ref(window.GO_DOCKERIZED === true
+        ? window.GO_APP_URL
+        : import.meta.env.VITE_APP_URL
+    );
 
     // ---- State ------------------------------------------------------
     // Collections list
@@ -63,7 +80,19 @@ export const useChessLogStore = defineStore('chessLogStore', () => {
         activeGame.value = id;
     }
 
-    function saveGame()
+    async function saveGame(game: Game, moves: Move[]) {
+        try {           
+            console.log({appUrl: appUrl.value})
+            const url = `${appUrl.value}/api/games`;
+
+            const r = await axios.post(url, {game, moves});
+
+            console.log(r);
+
+        } catch (err) {
+            console.log("! chessLogStore.ts saveGame ! \n", err);
+        }
+    }
 
     // - Expose --------------------------------------------------------
     return {
@@ -75,5 +104,6 @@ export const useChessLogStore = defineStore('chessLogStore', () => {
 
         setActiveCollection,
         setActiveGame,
+        saveGame,
     };
 });

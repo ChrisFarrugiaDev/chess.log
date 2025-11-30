@@ -1,0 +1,7 @@
+POST http://localhost:4567/api/collection
+Content-Type: application/json
+
+{
+    "name" : "Réti Opening",
+    "user_id": 1
+}

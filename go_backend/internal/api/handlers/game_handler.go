@@ -5,7 +5,6 @@ import (
 	"chess_log/go_backend/internal/helpers"
 	"chess_log/go_backend/internal/models"
 	"encoding/json"
-
 	"net/http"
 )
 
@@ -15,6 +14,7 @@ type GameHandler struct {
 
 // Store creates a game and its moves in a single transaction.
 func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	// ----- Request body structure -----
 	type MoveReq struct {
@@ -34,8 +34,7 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 		CollectionID int64   `json:"collection_id"`
 		Name         string  `json:"name"`
 		Orientation  string  `json:"orientation"`
-		Notes        *string `json:"notes"` // nullable
-		// SortOrder    int     `json:"sort_order"`
+		Notes        *string `json:"notes"`
 	}
 
 	type Request struct {
@@ -45,9 +44,31 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 
 	var req Request
 
+	// ----- Decode JSON -----
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		helpers.RespondWithError(w, err, "Invalid JSON body.", http.StatusBadRequest)
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid JSON payload")
 		return
+	}
+
+	// ----- Validation -----
+	if req.Game.CollectionID == 0 {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "collection_id is required")
+		return
+	}
+
+	if req.Game.Name == "" {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "game name is required")
+		return
+	}
+
+	if len(req.Moves) == 0 {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "moves array cannot be empty")
+		return
+	}
+
+	// Default orientation
+	if req.Game.Orientation == "" {
+		req.Game.Orientation = "white"
 	}
 
 	// ----- Build Game model -----
@@ -55,8 +76,7 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 		CollectionID: req.Game.CollectionID,
 		Name:         req.Game.Name,
 		Orientation:  req.Game.Orientation,
-		// SortOrder:    req.Game.SortOrder,
-		Notes: req.Game.Notes,
+		Notes:        req.Game.Notes,
 	}
 
 	// ----- Build GameMove models -----
@@ -64,7 +84,6 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 
 	for _, mv := range req.Moves {
 		moveModels = append(moveModels, &models.GameMove{
-
 			MoveNumber: mv.MoveNumber,
 			Color:      mv.Color,
 			BeforeFEN:  mv.BeforeFEN,
@@ -81,25 +100,14 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 	// ----- Save game + moves using transaction -----
 	ctx := r.Context()
 	savedGame, err := models.CreateGameWithMoves(ctx, newGame, moveModels)
-
 	if err != nil {
-
-		helpers.RespondWithError(w, err, "Failed to create game.", http.StatusInternalServerError)
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to create game")
 		return
 	}
 
 	// ----- Successful response -----
-	response := map[string]any{
-		"message": "Game created successfully.",
-		"data": map[string]any{
-			"game": savedGame,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		helpers.RespondWithError(w, err, "Failed to encode response.", http.StatusInternalServerError)
-	}
+	helpers.RespondJSON(w, http.StatusCreated, map[string]any{
+		"message": "Game created successfully",
+		"game":    savedGame,
+	})
 }

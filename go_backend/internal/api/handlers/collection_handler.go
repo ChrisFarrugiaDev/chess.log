@@ -14,48 +14,53 @@ type CollectionHandler struct {
 }
 
 func (h *CollectionHandler) Store(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	type Request struct {
-		UserID int64  `db:"user_id" json:"user_id"`
-		Name   string `db:"name" json:"name"`
+		UserID int64  `json:"user_id"`
+		Name   string `json:"name"`
 	}
 
 	var req Request
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-
-	if err != nil {
-		helpers.RespondWithError(w, err, "Failed to create collection.", http.StatusInternalServerError)
+	// Parse JSON
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request payload")
+		return
 	}
 
-	newCollection := &models.Collection{
+	// Validate input
+	if req.Name == "" {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Collection name is required")
+		return
+	}
+
+	if req.UserID == 0 {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "user_id is required")
+		return
+	}
+
+	// Create model
+	collection := &models.Collection{
 		Name:   req.Name,
 		UserID: req.UserID,
 	}
 
-	newCollection, err = newCollection.Create()
-
+	// Insert into DB
+	created, err := collection.Create()
 	if err != nil {
 		if errors.Is(err, models.ErrDuplicateCollection) {
-			http.Error(w, "Collection with this name already exists.", http.StatusConflict)
+			helpers.RespondErrorJSON(w, http.StatusConflict, nil, "A collection with this name already exists")
 			return
 		}
-		helpers.RespondWithError(w, err, "Failed to create collection.", http.StatusInternalServerError)
+
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to create collection")
 		return
 	}
 
-	response := map[string]any{
-		"message": "Collection updated successfully.",
-		"data": map[string]any{
-			"collection": newCollection,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		helpers.RespondWithError(w, err, "Failed to encode response.", http.StatusInternalServerError)
-	}
-
+	// Success
+	helpers.RespondJSON(w, http.StatusCreated, map[string]any{
+		"message":    "Collection created successfully",
+		"collection": created,
+	})
 }

@@ -69,3 +69,20 @@ https://github.com/sendgrid/sendgrid-go
     $ go get github.com/sendgrid/sendgrid-go
     
 <!-- --------------------------------------------------------------- -->
+
+### jwt-go
+
+https://github.com/golang-jwt/jwt
+https://pkg.go.dev/github.com/golang-jwt/jwt/v5#section-readme
+
+    $ go get -u github.com/golang-jwt/jwt/v5
+
+<!-- --------------------------------------------------------------- -->
+
+### wneessen/go-mail
+
+https://github.com/wneessen/go-mail/wiki
+https://github.com/wneessen/go-mail
+https://pkg.go.dev/github.com/wneessen/go-mail#example-Msg.SetBodyTextTemplate
+
+    go get github.com/wneessen/go-mail

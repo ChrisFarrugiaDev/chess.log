@@ -4,6 +4,7 @@ import (
 	"chess_log/go_backend/internal/appcore"
 	"chess_log/go_backend/internal/httpserver"
 	"chess_log/go_backend/internal/logger"
+	"chess_log/go_backend/internal/mailer"
 	"context"
 	"fmt"
 	"os"
@@ -31,6 +32,26 @@ func main() {
 	// Initialize database connection
 
 	initializeDatabase()
+
+	// -----------------------------------------------------------------
+	// Initialize mailer
+
+	mailer, err := mailer.NewSmtpMailer(
+		"smtp.privateemail.com",
+		587,
+		"info@chrisfarrugia.dev",
+		os.Getenv("SMTP_PASSWORD"),
+		"info@chrisfarrugia.dev",
+	)
+
+	if err != nil {
+		logger.Error("failed to initialize SMTP mailer",
+			zap.Error(err),
+		)
+		os.Exit(1)
+	}
+
+	app.Mailer = mailer
 
 	// -----------------------------------------------------------------
 	// Create a context that will be cancelled when an interrupt or termination signal is received.
@@ -64,7 +85,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := httpserver.Shutdown(shutdownCtx)
+	err = httpserver.Shutdown(shutdownCtx)
 	if err != nil {
 		logger.Error("Error during server shutdown", zap.Error(err))
 

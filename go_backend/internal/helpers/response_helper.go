@@ -2,32 +2,53 @@ package helpers
 
 import (
 	"chess_log/go_backend/internal/logger"
-	"fmt"
+	"encoding/json"
+
 	"net/http"
-	"os"
+
 	"runtime"
 
 	"go.uber.org/zap"
 )
 
-func RespondWithError(w http.ResponseWriter, err error, message string, statusCode int, depth ...int) {
-
-	// Set the default depth to 1 if none is provided
+func RespondErrorJSON(w http.ResponseWriter, status int, err error, message string, depth ...int) {
+	// Determine call depth
 	callDepth := 1
 	if len(depth) > 0 {
 		callDepth = depth[0]
 	}
 
-	_, file, line, _ := runtime.Caller(callDepth)
-	var userError string
+	// Only log internal server errors
+	if status == http.StatusInternalServerError {
+		_, file, line, _ := runtime.Caller(callDepth)
 
-	if os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1" {
-		userError = fmt.Sprintf("%s: at %s:%d: \n%v", message, file, line, err)
-	} else {
-		userError = message
+		logger.Error(
+			message,
+			zap.Error(err),
+			zap.String("file", file),
+			zap.Int("line", line),
+		)
 	}
 
-	logger.Error(message, zap.Error(err), zap.Int("call_deep", callDepth))
+	// Build user-facing message
+	var userMessage string
 
-	http.Error(w, userError, statusCode)
+	userMessage = message
+
+	RespondJSON(w, status, map[string]any{
+		"success": false,
+		"message": userMessage,
+	})
+}
+
+func RespondJSON(w http.ResponseWriter, status int, data map[string]any, depth ...int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	// If "success" key not present, add it as true
+	if _, ok := data["success"]; !ok {
+		data["success"] = true
+	}
+
+	_ = json.NewEncoder(w).Encode(data)
 }

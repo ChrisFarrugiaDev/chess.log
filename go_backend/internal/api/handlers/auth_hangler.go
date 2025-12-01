@@ -7,7 +7,10 @@ import (
 	"chess_log/go_backend/internal/models"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
+	"time"
 )
 
 type AuthHandler struct {
@@ -15,77 +18,281 @@ type AuthHandler struct {
 }
 
 func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	type Request struct {
-		Name      string `db:"name" json:"name"`
-		Email     string `db:"email" json:"email"`
-		Password1 string `db:"password" json:"password1"`
-		Password2 string `db:"password" json:"password2"`
+		Name      string `json:"name"`
+		Email     string `json:"email"`
+		Password1 string `json:"password1"`
+		Password2 string `json:"password2"`
 	}
 
 	var req Request
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-
-	if err != nil {
-		helpers.RespondWithError(w, err, "Failed to create user.", http.StatusInternalServerError)
+	// Parse JSON
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request payload")
+		return
 	}
 
+	// Validate passwords
 	if req.Password1 != req.Password2 {
-		http.Error(w, "Passwords do not match.", http.StatusBadRequest)
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Passwords do not match")
 		return
 	}
 
 	if len(req.Password1) < 6 {
-		http.Error(w, "Password must be at least 6 characters long.", http.StatusBadRequest)
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Password must be at least 6 characters")
 		return
 	}
 
+	// Hash password
 	hash, err := helpers.HashPassword(req.Password1)
-
 	if err != nil {
-		helpers.RespondWithError(w, err, "Failed to create user.", http.StatusInternalServerError)
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to hash password")
+		return
 	}
 
-	newUser := &models.User{
+	// Build user model
+	user := &models.User{
 		Name:         req.Name,
 		Email:        req.Email,
 		PasswordHash: hash,
 	}
 
-	err = mailer.TwilioEmailSender("Register User", req.Email)
-
-	if err != nil {
-		helpers.RespondWithError(w, err, "Failed to create user!!", http.StatusInternalServerError)
-	}
-
-	// Attempt to create the user
-	createdUser, err := newUser.Create()
-
+	// Save user
+	createdUser, err := user.Create()
 	if err != nil {
 		if errors.Is(err, models.ErrDuplicateUser) {
-			http.Error(w, "User with this email already exists.", http.StatusConflict)
+			helpers.RespondErrorJSON(w, http.StatusConflict, nil, "User with this email already exists")
 			return
 		}
-		helpers.RespondWithError(w, err, "Failed to create user.", http.StatusInternalServerError)
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to create user")
 		return
 	}
 
-	response := map[string]any{
-		"message": "User created successfully.",
-		"data": map[string]any{
-			"user": createdUser,
-		},
+	// Generate email verification token
+
+	jwtPayload := map[string]any{
+		"Subject": "email_validation", // use underscore for consistency
+		"Email":   createdUser.Email,
+		"UserID":  createdUser.ID,
 	}
 
+	exp := time.Now().Add(15 * time.Minute)
+	token, err := helpers.GenerateJWT(jwtPayload, exp)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to generate verification token")
+		return
+	}
+
+	baseURL := os.Getenv("APP_URL")
+	link := fmt.Sprintf("%s/verify-email?token=%s", baseURL, token)
+
+	plainBody, htmlBody := mailer.GenerateEmailValidationTemp(link)
+
+	// Send verification email
+
+	msg, err := h.App.Mailer.CreateMessage(
+		createdUser.Email,
+		"Verify your email - ChessLog",
+		plainBody,
+		htmlBody,
+	)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to compose verification email")
+		return
+	}
+
+	if err := h.App.Mailer.Send(msg); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to send verification email")
+		return
+	}
+
+	// Success
+
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "User created successfully. Please verify your email.",
+		"user":    createdUser,
+	})
+}
+
+func (h *AuthHandler) ValidatedEmail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	w.WriteHeader(http.StatusOK)
-
-	err = json.NewEncoder(w).Encode(response)
-
-	if err != nil {
-		helpers.RespondWithError(w, err, "Failed to encode response.", http.StatusInternalServerError)
+	type Request struct {
+		Token string `json:"token"`
 	}
 
+	var req Request
+
+	// Parse JSON
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request body")
+		return
+	}
+
+	// Validate JWT
+	claims, err := helpers.ValidateJWT(req.Token)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, err, "Invalid or expired token")
+		return
+	}
+
+	userID, ok := claims["UserID"].(float64)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token payload")
+		return
+	}
+
+	email, ok := claims["Email"].(string)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token payload")
+		return
+	}
+
+	tokenType, ok := claims["Subject"].(string)
+	if !ok || tokenType != "email_validation" {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token type")
+		return
+	}
+
+	// Get user
+
+	user, err := models.GetUserByID(int64(userID))
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusNotFound, err, "User not found")
+		return
+	}
+
+	if user.Email != email {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Token does not match user")
+		return
+	}
+
+	// Already verified?
+	if user.EmailVerified {
+		helpers.RespondJSON(w, http.StatusOK, map[string]any{
+			"message": "Email already verified",
+			"user":    user,
+		})
+		return
+	}
+
+	// Mark verified
+
+	user.EmailVerified = true
+	if err := user.Update(); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to update user")
+		return
+	}
+
+	// Success
+
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "Email successfully verified",
+		"user":    user,
+	})
+}
+
+func (h *AuthHandler) ResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	type Request struct {
+		Token string `json:"token"`
+	}
+
+	var req Request
+
+	// Parse JSON
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request body")
+		return
+	}
+
+	// Extract claims even if expired
+	claims, err := helpers.ValidateJWTAllowExpired(req.Token)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, err, "Invalid token")
+		return
+	}
+
+	userID, ok := claims["UserID"].(float64)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token payload")
+		return
+	}
+
+	email, ok := claims["Email"].(string)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token payload")
+		return
+	}
+
+	tokenType, ok := claims["Subject"].(string)
+	if !ok || tokenType != "email_validation" {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token type")
+		return
+	}
+
+	// Get user
+	user, err := models.GetUserByID(int64(userID))
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusNotFound, err, "User not found")
+		return
+	}
+
+	if user.Email != email {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Token does not match user")
+		return
+	}
+
+	// Already verified
+	if user.EmailVerified {
+		helpers.RespondJSON(w, http.StatusOK, map[string]any{
+			"message": "Email already verified",
+			"user":    user,
+		})
+		return
+	}
+
+	// --- Generate NEW verification token ---
+	jwtPayload := map[string]any{
+		"Subject": "email_validation",
+		"Email":   user.Email,
+		"UserID":  user.ID,
+	}
+
+	exp := time.Now().Add(15 * time.Minute)
+	newToken, err := helpers.GenerateJWT(jwtPayload, exp)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to generate new verification token")
+		return
+	}
+
+	baseURL := os.Getenv("APP_URL")
+	link := fmt.Sprintf("%s/verify-email?token=%s", baseURL, newToken)
+
+	plainBody, htmlBody := mailer.GenerateEmailValidationTemp(link)
+
+	// Send email
+	msg, err := h.App.Mailer.CreateMessage(
+		user.Email,
+		"Resend Email Verification - ChessLog",
+		plainBody,
+		htmlBody,
+	)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to compose verification email")
+		return
+	}
+
+	if err := h.App.Mailer.Send(msg); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to send verification email")
+		return
+	}
+
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "Verification email resent successfully",
+	})
 }

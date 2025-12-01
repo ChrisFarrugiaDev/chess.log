@@ -14,6 +14,7 @@
 
             <!-- Error -->
             <p v-if="errorMessage" class="auth__error">{{ errorMessage }}</p>
+            <p v-if="successMessage" class="auth__message">{{ successMessage }}</p>
 
             <!-- Register Form -->
             <form class="auth__form" @submit.prevent="submitRegister">
@@ -73,22 +74,30 @@
 </template>
 
 <script setup lang="ts">
+import { useAppStore } from "@/stores/appStore";
+import axios from "axios";
 import { ref } from "vue";
 
-const name = ref("");
-const email = ref("");
-const password = ref("");
-const confirmPassword = ref("");
+const appStore = useAppStore();
+
+// - State -------------------------------------------------------------
+const name = ref("Chris");
+const email = ref("chris12aug@gmail.com");
+const password = ref("ayanami");
+const confirmPassword = ref("ayanami");
 
 const showPassword = ref(false);
 const loading = ref(false);
 const errorMessage = ref("");
+const successMessage = ref("");
 
+// - Methods -----------------------------------------------------------
 async function submitRegister() {
     loading.value = true;
     errorMessage.value = "";
+    successMessage.value = "";
 
-    // Basic validation
+    // --- Basic validation ---
     if (password.value !== confirmPassword.value) {
         errorMessage.value = "Passwords do not match.";
         loading.value = false;
@@ -101,18 +110,51 @@ async function submitRegister() {
         return;
     }
 
-    // Simulate request for now
-    setTimeout(() => {
+    const url = `${appStore.getAppUrl}/api/auth/register`;
+    const payload = {
+        name: name.value.trim(),
+        email: email.value.trim(),
+        password1: password.value,
+        password2: confirmPassword.value
+    };
+
+    try {
+        const r = await axios.post(url, payload);
+
+        // --- Success message ---
+        successMessage.value =
+            r.data?.message ||
+            "User created successfully. Please verify your email.";
+
+        // Clear inputs
+        name.value = "";
+        email.value = "";
+        password.value = "";
+        confirmPassword.value = "";
+
+    } catch (err: any) {
+        // Axios error detection
+        if (err.response) {
+            // Server responded with an error
+            errorMessage.value =
+                err.response.data?.message ||
+                err.response.data?.error ||
+                "An unexpected server error occurred.";
+        } else if (err.request) {
+            // Request made but no response
+            errorMessage.value = "Cannot reach server. Please try again later.";
+        } else {
+            // Something else happened
+            errorMessage.value = "Unexpected error. Please try again.";
+        }
+    } finally {
         loading.value = false;
-        console.log("REGISTER OK:", { name: name.value, email: email.value });
-    }, 1000);
+    }
 }
 </script>
-
+<!-- --------------------------------------------------------------- -->
 <style scoped lang="scss">
-/* ------------------------------------------
-   Same BEM + SCSS structure as Login view
------------------------------------------- */
+
 
 .auth {
     width: 100vw;
@@ -136,7 +178,7 @@ async function submitRegister() {
         gap: 1.6rem;
         box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
         animation: fadeIn .4s ease-out;
-   
+
     }
 
     &__title {
@@ -170,6 +212,12 @@ async function submitRegister() {
 
     &__error {
         color: var(--color-red-500);
+        text-align: center;
+        font-size: .85rem;
+        margin-top: -0.5rem;
+    }
+    &__message {
+        color: var(--color-green-500);
         text-align: center;
         font-size: .85rem;
         margin-top: -0.5rem;

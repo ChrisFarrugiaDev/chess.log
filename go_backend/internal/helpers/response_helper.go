@@ -3,9 +3,9 @@ package helpers
 import (
 	"chess_log/go_backend/internal/logger"
 	"encoding/json"
-
+	"fmt"
 	"net/http"
-
+	"os"
 	"runtime"
 
 	"go.uber.org/zap"
@@ -33,7 +33,11 @@ func RespondErrorJSON(w http.ResponseWriter, status int, err error, message stri
 	// Build user-facing message
 	var userMessage string
 
-	userMessage = message
+	if os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1" {
+		userMessage = fmt.Sprintf("%s: %v", message, err)
+	} else {
+		userMessage = message
+	}
 
 	RespondJSON(w, status, map[string]any{
 		"success": false,

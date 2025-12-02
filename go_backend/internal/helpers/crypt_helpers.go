@@ -79,27 +79,3 @@ func ValidateJWT(tokenStr string) (jwt.MapClaims, error) {
 
 	return claims, nil
 }
-
-func ValidateJWTAllowExpired(tokenStr string) (jwt.MapClaims, error) {
-	secret := []byte(os.Getenv("JWT_EMAIL_SECRET"))
-
-	// Parse without verifying expiration
-	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	token, err := parser.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return secret, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, errors.New("invalid token claims")
-	}
-
-	return claims, nil
-}

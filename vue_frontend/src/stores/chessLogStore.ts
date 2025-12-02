@@ -3,15 +3,22 @@ import { defineStore } from 'pinia'
 import axios from '@/axios';
 import type { Game } from '@/types/game.type';
 import type { Move } from '@/types/move.type';
-import { useAppStore } from './appStore';
 
 
-
+declare global {
+    interface Window {
+        GO_DOCKERIZED: boolean | undefined;
+        GO_APP_URL: string;
+    }
+}
 
 
 export const useChessLogStore = defineStore('chessLogStore', () => {
 
-    const appStore = useAppStore();
+    const appUrl = ref(window.GO_DOCKERIZED === true
+        ? window.GO_APP_URL
+        : import.meta.env.VITE_APP_URL
+    );
 
     // ---- State ------------------------------------------------------
     // Collections list
@@ -75,8 +82,8 @@ export const useChessLogStore = defineStore('chessLogStore', () => {
 
     async function saveGame(game: Game, moves: Move[]) {
         try {           
-            
-            const url = `${appStore.getAppUrl}/api/games`;
+            console.log({appUrl: appUrl.value})
+            const url = `${appUrl.value}/api/games`;
 
             const r = await axios.post(url, {game, moves});
 

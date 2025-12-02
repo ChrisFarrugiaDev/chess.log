@@ -48,79 +48,48 @@
 </template>
 
 <script setup lang="ts">
-import { useAppStore } from "@/stores/appStore";
-import axios from "axios";
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 
 const route = useRoute();
-const appStore = useAppStore();
 
 const loading = ref(true);
 const successMessage = ref("");
 const errorMessage = ref("");
 
-const token = ref<string | null>(null);
-
-// ---------------------------------------------
-// Verify Email on mount
-// ---------------------------------------------
-async function verifyEmail() {
-    if (!token.value) {
+async function verifyEmail(token: string | null) {
+    if (!token) {
         loading.value = false;
         errorMessage.value = "Invalid or missing verification token.";
         return;
     }
 
-    const url = `${appStore.getAppUrl}/api/auth/verify-email`;
-    const payload = { token: token.value };
-
-    try {
-        const r = await axios.post(url, payload);
-
-        successMessage.value = r.data.message;
-    } catch (err) {
-        errorMessage.value = "Verification failed. Token may be expired.";
-    } finally {
+    // Simulate backend check
+    setTimeout(() => {
         loading.value = false;
-    }
+
+        if (token === "fail") {
+            errorMessage.value = "Verification failed. Token may be expired.";
+        } else {
+            successMessage.value = "Your email has been successfully verified!";
+        }
+    }, 1200);
 }
 
-// ---------------------------------------------
-// Resend Email Verification
-// ---------------------------------------------
-async function resendEmail() {
-    if (!token.value) {
-        errorMessage.value = "Missing token. Cannot resend verification email.";
-        return;
-    }
-
+function resendEmail() {
     loading.value = true;
     errorMessage.value = "";
     successMessage.value = "";
-    
 
-    const url = `${appStore.getAppUrl}/api/auth/resend-verification-email`;
-    const payload = { token: token.value };
-
-    try {
-        const r = await axios.post(url, payload);
-
-        successMessage.value = r.data.message; // "Verification email resent successfully"
-    } catch (err) {
-        errorMessage.value = "Failed to resend verification email.";
-        console.error(err)
-    } finally {
+    setTimeout(() => {
         loading.value = false;
-    }
+        successMessage.value = "A new verification email has been sent.";
+    }, 1200);
 }
 
-// ---------------------------------------------
-// On page mount
-// ---------------------------------------------
 onMounted(() => {
-    token.value = route.query.token as string | null;
-    verifyEmail();
+    const token = route.query.token as string | null;
+    verifyEmail(token);
 });
 </script>
 

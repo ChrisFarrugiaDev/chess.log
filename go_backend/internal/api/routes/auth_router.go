@@ -10,13 +10,13 @@ import (
 func AuthRoutes(app *appcore.App) chi.Router {
 	r := chi.NewRouter()
 
-	authHandler := &handlers.AuthHandler{
+	gameHandler := &handlers.AuthHandler{
 		App: app,
 	}
 
-	r.Post("/register", authHandler.RegisterUser)
-	r.Post("/verify-email", authHandler.ValidatedEmail)
-	r.Post("/resend-verification-email", authHandler.ResendVerificationEmail)
+	// r.Use(middleware.JWTAuthMiddleware)
+
+	r.Post("/register", gameHandler.RegisterUser)
 
 	return r
 }

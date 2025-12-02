@@ -9,7 +9,7 @@ import (
 	"github.com/upper/db/v4"
 )
 
-var ErrDuplicateUser = errors.New("user with this email already exists")
+var ErrDuplicateUser = errors.New("user with this name already exists")
 
 type User struct {
 	ID            int64     `db:"id,omitempty" json:"id"`
@@ -56,7 +56,7 @@ func (m *User) Create() (*User, error) {
 	if err != nil {
 		// Check for duplicate email (SQLSTATE 23505 = unique violation)
 		if strings.Contains(err.Error(), "SQLSTATE 23505") {
-			return nil, ErrDuplicateUser
+			return nil, ErrDuplicateCollection
 		}
 
 		// Wrap and return other errors

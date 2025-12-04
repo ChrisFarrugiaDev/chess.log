@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +30,11 @@ func main() {
 	logger.InitLogger()
 
 	// -----------------------------------------------------------------
+	// Initialize validator
+
+	app.Validate = validator.New()
+
+	// -----------------------------------------------------------------
 	// Initialize database connection
 
 	initializeDatabase()
@@ -36,11 +42,13 @@ func main() {
 	// -----------------------------------------------------------------
 	// Initialize mailer
 
+	smtpPassword := os.Getenv("SMTP_PASSWORD")
+
 	mailer, err := mailer.NewSmtpMailer(
 		"smtp.privateemail.com",
-		587,
+		465,
 		"info@chrisfarrugia.dev",
-		os.Getenv("SMTP_PASSWORD"),
+		smtpPassword,
 		"info@chrisfarrugia.dev",
 	)
 

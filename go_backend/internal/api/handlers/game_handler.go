@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"chess_log/go_backend/internal/api/middleware"
 	"chess_log/go_backend/internal/appcore"
 	"chess_log/go_backend/internal/helpers"
 	"chess_log/go_backend/internal/models"
 	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type GameHandler struct {
@@ -15,6 +20,14 @@ type GameHandler struct {
 // Store creates a game and its moves in a single transaction.
 func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	claims, ok := r.Context().Value(middleware.ContextUserClaims).(jwt.MapClaims)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Missing auth claims!!")
+		return
+	}
+
+	userID := int64(claims["UserID"].(float64))
 
 	// ----- Request body structure -----
 	type MoveReq struct {
@@ -75,6 +88,7 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 	newGame := &models.Game{
 		CollectionID: req.Game.CollectionID,
 		Name:         req.Game.Name,
+		UserID:       userID,
 		Orientation:  req.Game.Orientation,
 		Notes:        req.Game.Notes,
 	}
@@ -110,4 +124,35 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 		"message": "Game created successfully",
 		"game":    savedGame,
 	})
+}
+
+func (h *GameHandler) GetMoves(w http.ResponseWriter, r *http.Request) {
+
+	// 1. Extract param from URL
+	gameIDParam := chi.URLParam(r, "game_id")
+	if gameIDParam == "" {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Missing game_id parameter")
+		return
+	}
+
+	// 2. Convert to int64 safely
+	gameID, err := strconv.ParseInt(gameIDParam, 10, 64)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "game_id must be a valid integer")
+		return
+	}
+
+	// 3. Fetch moves from DB
+	moves, err := h.App.Models.GameMove.GetByGameID(gameID)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to fetch moves")
+		return
+	}
+
+	// 4. Send response
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"game_id": gameID,
+		"moves":   moves,
+	})
+
 }

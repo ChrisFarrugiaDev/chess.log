@@ -11,15 +11,27 @@ type SmtpMailer struct {
 
 // Create a new mailer instance (used once during app startup)
 func NewSmtpMailer(host string, port int, username, password, from string) (*SmtpMailer, error) {
-	client, err := mail.NewClient(
-		host,
+	opts := []mail.Option{
 		mail.WithPort(port),
 		mail.WithUsername(username),
 		mail.WithPassword(password),
 		mail.WithSMTPAuth(mail.SMTPAuthPlain),
-		mail.WithTLSPolicy(mail.TLSOpportunistic),
-	)
+	}
 
+	// If using SSL port 465 → enable implicit TLS
+	if port == 465 {
+		opts = append(opts,
+			mail.WithSSL(), // Enable implicit SSL
+			mail.WithTLSPortPolicy(mail.TLSMandatory), // Require TLS
+		)
+	} else {
+		// Port 587 → STARTTLS
+		opts = append(opts,
+			mail.WithTLSPortPolicy(mail.TLSOpportunistic), // Upgrade to TLS
+		)
+	}
+
+	client, err := mail.NewClient(host, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	up "github.com/upper/db/v4"
+)
 
 type GameMove struct {
 	ID         int64  `db:"id,omitempty" json:"id"`
@@ -42,4 +46,18 @@ func (m *GameMove) Create() (*GameMove, error) {
 	}
 
 	return m, nil
+}
+
+func (m *GameMove) GetByGameID(gameID int64) ([]*GameMove, error) {
+
+	var gameMoves []*GameMove
+
+	_collection := upperSession.Collection(m.TableName())
+	err := _collection.Find(up.Cond{"game_id": gameID}).OrderBy("move_number").All(&gameMoves)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return gameMoves, nil
 }

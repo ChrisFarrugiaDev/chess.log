@@ -1,0 +1,3 @@
+GET http://localhost:4567/api/games/moves/1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImNocmlzMTJhdWdAZ21haWwuY29tIiwiU3ViamVjdCI6ImF1dGhfc2Vzc2lvbiIsIlVzZXJJRCI6MSwiZXhwIjoxNzY0ODE0NzgyfQ.TEfQmoTmFgbnZ7GjREn_E1_E9hzG2FOzWwl0ir-J5Xg

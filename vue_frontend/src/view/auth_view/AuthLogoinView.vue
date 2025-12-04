@@ -13,10 +13,19 @@
             <p class="auth__subtitle">Sign in to continue</p>
 
             <!-- Error -->
-            <p v-if="errorMessage" class="auth__error">{{ errorMessage }}</p>
+            <p v-show="errorMessage" class="auth__error">{{ errorMessage }}</p>
 
-            <!-- Form -->
-            <form class="auth__form" @submit.prevent="handleSubmit">
+            <!-- Success (after resend) -->
+            <p v-show="successMessage" class="auth__success">{{ successMessage }}</p>
+
+            <!-- Loading -->
+            <div v-show="loading" class="auth__loading">
+                <div class="auth__spinner"></div>
+                <p class="auth__loading-text">Please wait…</p>
+            </div>
+            
+            <!-- Login Form -->
+            <form class="auth__form" @submit.prevent="handleSubmit" >
 
                 <div class="auth__field">
                     <label class="auth__label">Email</label>
@@ -36,11 +45,17 @@
                     </div>
                 </div>
 
-                <button type="submit" class="auth__btn vbtn--indigo" :disabled="loading">
-                    <span v-if="!loading">Login</span>
-                    <span v-else>Loading…</span>
+                <button type="submit" class="auth__btn vbtn--indigo">
+                    Login
                 </button>
             </form>
+
+            <!-- Resend Verification Button -->
+            <div v-show="showResend" class="auth__links">
+                <button class="auth__link auth__link--button" @click.prevent="resendEmail">
+                    Resend verification email
+                </button>
+            </div>
 
             <!-- Links -->
             <div class="auth__links">
@@ -53,42 +68,112 @@
             </div>
 
             <p class="auth__footer">v1.0.0 — © 2025 ChessLog</p>
-
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
+import axios from "axios";
 import { ref } from "vue";
+import { useAppStore } from "@/stores/appStore";
+import { useApiError } from "@/composables/useApiError";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/authStore";
+
+
+// - Cpmposable --------------------------------------------------------
+const { errorMessage, handleApiError } = useApiError();
+
+// - Router ------------------------------------------------------------
+const router = useRouter();
+
+// - Store -------------------------------------------------------------
+const appStore = useAppStore();
+const authStore = useAuthStore();
+
+// - State -------------------------------------------------------------
 
 const email = ref("");
 const password = ref("");
 
 const showPassword = ref(false);
 const loading = ref(false);
-const errorMessage = ref("");
+const successMessage = ref("");
 
+const showResend = ref(false);
+const savedToken = ref<string | null>(null);
+
+// - Methods -----------------------------------------------------------
 async function handleSubmit() {
     loading.value = true;
     errorMessage.value = "";
+    successMessage.value = "";
+    showResend.value = false;
 
-    setTimeout(() => {
-        loading.value = false;
+    const url = `${appStore.getAppUrl}/api/auth/login`;
 
-        if (email.value.length < 4 || password.value.length < 4) {
-            errorMessage.value = "Invalid email or password.";
-            return;
+    const payload = {
+        email: email.value.trim(),
+        password: password.value
+    };
+
+    try {
+        const r = await axios.post(url, payload);
+
+        authStore.setJwt(r.data.token);
+
+        
+        // Redirect with router
+        setTimeout(() => {
+            router.push({ name: authStore.getRedirectTo || "dashboardView" });
+        }, 400);
+
+
+
+    } catch (err: any) {
+
+        // Check if backend says "email not verified"
+        if (err.response?.data?.reason === "email_not_verified") {
+            errorMessage.value = err.response.data.message;
+            savedToken.value = err.response.data.token;   // store token for resend
+            showResend.value = true;
+        } else {
+            handleApiError(err);
         }
 
-        console.log("Login successful");
-    }, 1000);
+    } finally {
+        loading.value = false;
+    }
+}
+
+async function resendEmail() {
+    if (!savedToken.value) {
+        errorMessage.value = "Missing token. Cannot resend email.";
+        return;
+    }
+
+    loading.value = true;
+    errorMessage.value = "";
+    successMessage.value = "";
+
+    const url = `${appStore.getAppUrl}/api/auth/resend-verification-email`;
+    const payload = { token: savedToken.value };
+
+    try {
+        const r = await axios.post(url, payload);
+        successMessage.value = r.data.message;
+    } catch (err) {
+        handleApiError(err);
+    } finally {
+        loading.value = false;
+    }
 }
 </script>
 
+
+<!-- --------------------------------------------------------------- -->
+
 <style scoped lang="scss">
-/* ===============================================
-   Block: auth
-================================================ */
 .auth {
     width: 100vw;
     height: 100vh;
@@ -111,11 +196,8 @@ async function handleSubmit() {
         gap: 1.6rem;
         box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
         animation: fadeIn .4s ease-out;
-
     }
 
-    /* ------------------------------------------- */
-    /* Title */
     &__title {
         color: var(--color-slate-900);
         font-size: 1.9rem;
@@ -145,8 +227,7 @@ async function handleSubmit() {
         margin-top: -0.8rem;
     }
 
-    /* ------------------------------------------- */
-    /* Messages */
+
     &__error {
         color: var(--color-red-500);
         text-align: center;
@@ -154,8 +235,6 @@ async function handleSubmit() {
         margin-top: -0.5rem;
     }
 
-    /* ------------------------------------------- */
-    /* Form */
     &__form {
         display: flex;
         flex-direction: column;
@@ -191,7 +270,6 @@ async function handleSubmit() {
         }
     }
 
-    /* Password wrapper */
     &__password-wrapper {
         position: relative;
     }
@@ -209,8 +287,7 @@ async function handleSubmit() {
         cursor: pointer;
     }
 
-    /* ------------------------------------------- */
-    /* Submit button */
+
     &__btn {
         width: 100%;
         padding: .75rem;
@@ -229,8 +306,7 @@ async function handleSubmit() {
         }
     }
 
-    /* ------------------------------------------- */
-    /* Links */
+
     &__links {
         margin-top: -.5rem;
         display: flex;
@@ -242,6 +318,9 @@ async function handleSubmit() {
         color: var(--color-indigo-500);
         text-decoration: none;
         transition: .2s;
+        outline: none;
+        border: none;
+        background-color: transparent;
 
         &:hover {
             color: var(--color-indigo-400);
@@ -262,9 +341,30 @@ async function handleSubmit() {
         color: var(--color-text-4);
         opacity: .7;
     }
+
+    &__loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .8rem;
+    }
+
+    &__spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--color-slate-400);
+        border-top-color: var(--color-indigo-500);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    &__loading-text {
+        color: var(--color-text-4);
+        font-size: .85rem;
+    }
 }
 
-/* Animation */
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -274,6 +374,12 @@ async function handleSubmit() {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 </style>

@@ -12,8 +12,17 @@
 
             <p class="auth__subtitle">Start your ChessLog journey</p>
 
+            <!-- Loading -->
+            <div v-if="loading" class="auth__loading">
+                <div class="auth__spinner"></div>
+                <p class="auth__loading-text">Please wait…</p>
+            </div>
+
             <!-- Error -->
             <p v-if="errorMessage" class="auth__error">{{ errorMessage }}</p>
+
+            <!-- Success -->
+            <p v-else-if="successMessage" class="auth__message">{{ successMessage }}</p>
 
             <!-- Register Form -->
             <form class="auth__form" @submit.prevent="submitRegister">
@@ -72,23 +81,34 @@
     </div>
 </template>
 
+<!-- ----------------------------------------------------------------------- -->
 <script setup lang="ts">
+import { useApiError } from "@/composables/useApiError";
+import { useAppStore } from "@/stores/appStore";
+import axios from "axios";
 import { ref } from "vue";
 
-const name = ref("");
-const email = ref("");
-const password = ref("");
-const confirmPassword = ref("");
+const { errorMessage, handleApiError } = useApiError();
+
+const appStore = useAppStore();
+
+// - State -------------------------------------------------------------
+const name = ref("Chris");
+const email = ref("chris12aug@gmail.com");
+const password = ref("DevPass");
+const confirmPassword = ref("DevPass");
 
 const showPassword = ref(false);
 const loading = ref(false);
-const errorMessage = ref("");
+const successMessage = ref("");
 
+// - Methods -----------------------------------------------------------
 async function submitRegister() {
     loading.value = true;
     errorMessage.value = "";
+    successMessage.value = "";
 
-    // Basic validation
+    // --- Basic validation ---
     if (password.value !== confirmPassword.value) {
         errorMessage.value = "Passwords do not match.";
         loading.value = false;
@@ -101,19 +121,40 @@ async function submitRegister() {
         return;
     }
 
-    // Simulate request for now
-    setTimeout(() => {
+    const url = `${appStore.getAppUrl}/api/auth/register`;
+    const payload = {
+        name: name.value.trim(),
+        email: email.value.trim(),
+        password1: password.value,
+        password2: confirmPassword.value
+    };
+
+    try {
+        const r = await axios.post(url, payload);
+
+        // --- Success message ---
+        successMessage.value =
+            r.data?.message ||
+            "User created successfully. Please verify your email.";
+
+        // Clear inputs
+        name.value = "";
+        email.value = "";
+        password.value = "";
+        confirmPassword.value = "";
+
+    } catch (err: any) {
+        handleApiError(err);
+
+    } finally {
         loading.value = false;
-        console.log("REGISTER OK:", { name: name.value, email: email.value });
-    }, 1000);
+    }
 }
 </script>
 
-<style scoped lang="scss">
-/* ------------------------------------------
-   Same BEM + SCSS structure as Login view
------------------------------------------- */
+<!-- ----------------------------------------------------------------------- -->
 
+<style scoped lang="scss">
 .auth {
     width: 100vw;
     height: 100vh;
@@ -136,7 +177,7 @@ async function submitRegister() {
         gap: 1.6rem;
         box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
         animation: fadeIn .4s ease-out;
-   
+
     }
 
     &__title {
@@ -170,6 +211,13 @@ async function submitRegister() {
 
     &__error {
         color: var(--color-red-500);
+        text-align: center;
+        font-size: .85rem;
+        margin-top: -0.5rem;
+    }
+
+    &__message {
+        color: var(--color-green-500);
         text-align: center;
         font-size: .85rem;
         margin-top: -0.5rem;
@@ -267,6 +315,28 @@ async function submitRegister() {
         color: var(--color-text-4);
         opacity: .7;
     }
+
+    /* Loading state */
+    &__loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .8rem;
+    }
+
+    &__spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--color-slate-400);
+        border-top-color: var(--color-indigo-500);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    &__loading-text {
+        color: var(--color-text-4);
+        font-size: .85rem;
+    }
 }
 
 @keyframes fadeIn {
@@ -278,6 +348,12 @@ async function submitRegister() {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 </style>

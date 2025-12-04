@@ -1,75 +1,58 @@
-import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
-
+import axios, { type InternalAxiosRequestConfig } from "axios";
+import { useAuthStore } from "./stores/authStore";
 
 // ---------------------------------------------------------------------
 
 const apiClient = axios.create({
-    // headers: {
-    //     "Content-Type": "application/json" // Ensure all requests use JSON
-    // },
-
-    timeout: 15000 // Timeout if the request takes longer than 15 seconds
+    timeout: 15000,
 });
 
+// ---------------------------------------------------------------------
+// REQUEST INTERCEPTOR — Attach JWT
+
+apiClient.interceptors.request.use(
+    (config: InternalAxiosRequestConfig<any>) => {
+        const authStore = useAuthStore();
+
+        if (authStore.isAuthenticated) {
+            const token = authStore.getJwt;
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+
+        return config;
+    },
+    (error) => {
+        console.error("! axios.request error !", error);
+        return Promise.reject(error);
+    }
+);
 
 // ---------------------------------------------------------------------
+// RESPONSE INTERCEPTOR — Handle 401
 
-// apiClient.interceptors.request.use (
-//     function(config: InternalAxiosRequestConfig<any>) {
-//         const authStore = useAuthStore();
-//         const isAuthenticated = authStore.isAuthenticated;
+apiClient.interceptors.response.use(
+    // SUCCESS → return response normally
+    (response) => {
+        return response;
+    },
 
-//         if (isAuthenticated) {
+    // ERROR → handle token expiration / unauthorized
+    (error) => {
+        const status = error?.response?.status;
+        const authStore = useAuthStore();
 
-//             const token = authStore.getJwt;
-//             config.headers.Authorization = `Bearer ${token}`;
-//         }
+        if (status === 401 && authStore.isAuthenticated) {
+            console.warn("401 caught → clearing JWT & redirecting to login");
 
-//         return config;
-//     },
-//     function(err: unknown) {
-//         console.log('! apiClient.interceptors.request !');
+            authStore.clearJwt();
 
-//         // Do something with request error
-//         return Promise.reject(err);
-//     }
-// );
+            // redirect
+            window.location.assign("/login");
+        }
 
-// ---------------------------------------------------------------------
-// apiClient.interceptors.response.use (
-
-
-//     function (response: AxiosResponse<any, any>) {
-//         let data = response?.data
-
-//         if (data?.messages) {
-//             const messageStore = useMessageStore();
-//             messageStore.setFlashMessagesList([data.messages], 'flash-message--blue');
-//         }
-        
-//         return response;
-//     },
-
-//     function(err: any) {
-
-//         console.error('! axios.interceptors.response !\n', err);
-
-//         // Axios error objects store status in err.response.status
-//         const status = err?.response?.status;
-//         const authStore = useAuthStore();
-
-//         if (status === 401  && authStore.isAuthenticated) {
-//             localStorage.clear();
-//             sessionStorage.clear();
-
-//             // Navigate to the login view regardless of the outcome of the above operations
-//             window.location.assign('/login');            
-//         } 
-
-//         return Promise.reject(err);        
-//     }
-// );
-
+        return Promise.reject(error);
+    }
+);
 
 // ---------------------------------------------------------------------
 

@@ -1,6 +1,9 @@
 <template>
 		<div class="dashboard v-ui" :data-theme="getTheme" ref="dashboardRef">
 
+			<VueLoadingOverlay :active="getIsLoading" :is-full-page="true" :lock-scroll="true" 
+			 	:width="256" :height="256" transition="fade" :opacity="0.5" />
+
 			<aside class="aside">
 				<TheSidebar></TheSidebar>
 			</aside>
@@ -23,6 +26,8 @@
 <!-- --------------------------------------------------------------- -->
 
 <script setup lang="ts">
+import VueLoadingOverlay from 'vue-loading-overlay';
+import 'vue-loading-overlay/dist/css/index.css';
 import { storeToRefs } from 'pinia';
 import { useDashboardStore } from '../stores/dashboardStore';
 import TheSidebar from '../components/TheSidebar.vue';
@@ -63,9 +68,9 @@ watch(getIsMenuOpen, (val) => {
 	height: 100vh;
 
 	display: grid;
-	grid-template-columns: 3rem 11rem 11rem 1fr;
+	grid-template-columns: 3rem 14rem 14rem 1fr;
 
-	transition: all .2s ease;
+	// transition: all .2s ease;
 
 	&--menu-close {
 		grid-template-columns: 3rem 0rem 0rem 1fr !important;

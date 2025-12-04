@@ -11,8 +11,24 @@
 <!-- --------------------------------------------------------------- -->
 
 <script setup lang="ts">
+import { watch } from 'vue';
+import { useAuthStore } from './stores/authStore';
+import { useChessLogStore } from './stores/chessLogStore';
 
 
+const authStore = useAuthStore();
+const chessLogStore = useChessLogStore();
+
+
+
+
+watch(()=>authStore.isAuthenticated, async (val) => {
+	if (val) {	
+		await chessLogStore.fetchProfile();
+	} 
+}, {
+	 immediate: true,
+})
 
 </script>
 

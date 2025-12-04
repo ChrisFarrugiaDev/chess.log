@@ -44,7 +44,7 @@ func GenerateJWT(payload map[string]interface{}, exp time.Time) (string, error) 
 	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	secret := []byte(os.Getenv("JWT_EMAIL_SECRET"))
+	secret := []byte(os.Getenv("JWT_SECRET_KEY"))
 
 	// Sign token with secret
 	signed, err := token.SignedString(secret)
@@ -55,7 +55,7 @@ func GenerateJWT(payload map[string]interface{}, exp time.Time) (string, error) 
 }
 
 func ValidateJWT(tokenStr string) (jwt.MapClaims, error) {
-	secret := []byte(os.Getenv("JWT_EMAIL_SECRET"))
+	secret := []byte(os.Getenv("JWT_SECRET_KEY"))
 
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
 
@@ -75,6 +75,30 @@ func ValidateJWT(tokenStr string) (jwt.MapClaims, error) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
 		return nil, errors.New("invalid token")
+	}
+
+	return claims, nil
+}
+
+func ValidateJWTAllowExpired(tokenStr string) (jwt.MapClaims, error) {
+	secret := []byte(os.Getenv("JWT_SECRET_KEY"))
+
+	// Parse without verifying expiration
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	token, err := parser.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return secret, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("invalid token claims")
 	}
 
 	return claims, nil

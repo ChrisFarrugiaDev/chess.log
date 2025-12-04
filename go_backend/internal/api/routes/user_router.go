@@ -8,17 +8,17 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func CollectionRoutes(app *appcore.App) chi.Router {
+func UserRoutes(app *appcore.App) chi.Router {
 	r := chi.NewRouter()
 
-	colletionHandler := &handlers.CollectionHandler{
+	userHandler := &handlers.UserHandler{
 		App: app,
 	}
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(middleware.JWTAuthMiddleware)
 
-		pr.Post("/", colletionHandler.Store)
+		pr.Get("/profile", userHandler.GetUserProfile)
 	})
 
 	return r

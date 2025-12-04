@@ -17,8 +17,8 @@
         <section class="game-form">
             <div class="game-form__field">
                 <label class="game-form__label">Collection</label>
-                <VueSelect v-model="gameState.collection_id" :style="[vueSelectStyles]" :options="collectionOptions"
-                    label-by="label" value-by="value" placeholder="Select collection" class="game-form__select" />
+                <VueSelect v-model="gameState.collection_id" :options="collectionOptions" label-by="label"
+                    value-by="value" placeholder="Select collection" class="game-form__select" />
             </div>
 
             <div class="game-form__field">
@@ -34,14 +34,17 @@
                     placeholder="Ideas, plans, why this game is important..."></textarea>
             </div>
 
-        <div class=" mt-9 flex">
-			<button v-if="!confirmOn" class="game-form__btn vbtn--sky mt-3" @click.prevent="initSaveGame">Save Game</button>
-			<button v-if="confirmOn" class="game-form__btn vbtn--slate mt-3" @click.prevent="confirmOn = false">Cancel</button>
-			<button v-if="confirmOn" class="game-form__btn vbtn--sky mt-3" @click.prevent="saveGame">Confirm</button>
-		</div>
+            <div class=" mt-9 flex">
+                <button v-if="!confirmOn" class="game-form__btn vbtn--sky mt-3" @click.prevent="initSaveGame">Save
+                    Game</button>
+                <button v-if="confirmOn" class="game-form__btn vbtn--slate mt-3"
+                    @click.prevent="confirmOn = false">Cancel</button>
+                <button v-if="confirmOn" class="game-form__btn vbtn--sky mt-3"
+                    @click.prevent="saveGame">Confirm</button>
+            </div>
         </section>
 
-        
+
 
     </div>
 </template>
@@ -50,10 +53,11 @@
 
 <script setup lang="ts">
 import { useVueSelectStyles } from '@/composables/useVueSelectStyles';
+import type { Option } from "vue3-select-component";
 import { useChessLogStore } from '@/stores/chessLogStore';
 import type { Game } from '@/types/game.type';
 import type { Move } from '@/types/move.type';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { TheChessboard, type BoardApi, type MoveEvent } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
@@ -74,7 +78,7 @@ const boardApi = ref<BoardApi | null>(null);
 // Local game state used when creating a new game
 const gameState = ref({
     id: null,
-    collection_id: null,
+    collection_id: null as null | number,
     name: null,
     orientation: "white",
     notes: null,
@@ -82,24 +86,36 @@ const gameState = ref({
 
 const movesState = ref<MoveEvent[]>([]);
 
-const collectionOptions = [
-    { value: 1, label: 'Réti Opening' },
-    { value: 2, label: "Queen's Gambit" },
-    { value: 3, label: 'Sicilian Defence' },
-    { value: 4, label: 'Nimzo-Indian Defence' },
-    { value: 5, label: 'My Games' },
-];
+
+const collectionOptions = ref<Option<number>[]>([]);
 
 const confirmOn = ref(false);
 
-// -Methods ------------------------------------------------------------
+// - Watch -------------------------------------------------------------
+watch(
+    () => chessLogStore.getCollections,
+    (val: any[]) => {
+        if (val && val.length > 0) {
+            collectionOptions.value = val.map<Option<number>>((c) => ({
+                value: c.id,
+                label: c.name,
+            }));
+        } else {
+            collectionOptions.value = [];
+        }
+    },
+    { immediate: true }
+);
+
+
+// - Methods -----------------------------------------------------------
 
 
 function initSaveGame() {
     if (
         !gameState.value.collection_id ||
         !gameState.value.name ||
-        movesState.value.length < 3   
+        movesState.value.length < 3
     ) {
         return
     }
@@ -108,7 +124,7 @@ function initSaveGame() {
 
 function saveGame() {
     const moves: Move[] = [];
-    
+
     const game: Game = {
         collection_id: gameState.value.collection_id!,
         name: gameState.value.name!,
@@ -185,13 +201,11 @@ function toggleOrientation() {
 <!-- --------------------------------------------------------------- -->
 
 <style lang="scss" scoped>
-
-
 .display {
     display: flex;
     padding: 2rem;
     max-height: 100vh;
-    overflow: scroll ;
+    overflow: scroll;
 
     @media (max-width: 1100px) {
         flex-direction: column;
@@ -206,7 +220,7 @@ function toggleOrientation() {
 .the-chess-board {
     width: 100%;
     padding: 1rem;
-    opacity: 1;
+    opacity: .9;
 
 }
 
@@ -222,7 +236,7 @@ function toggleOrientation() {
         cursor: pointer;
         font-family: var(--font-primary);
         font-size: 1rem;
-        color: var(--color-slate-100);     
+        color: var(--color-slate-100);
         border: 1px solid var(--color-slate-100);
         border-radius: 5px;
         padding: .7rem 1rem;
@@ -295,7 +309,7 @@ function toggleOrientation() {
         cursor: pointer;
         font-family: var(--font-primary);
         font-size: 1rem;
-        color: var(--color-slate-100);     
+        color: var(--color-slate-100);
         border: 1px solid var(--color-slate-100);
         border-radius: 5px;
         padding: .7rem 1rem;
@@ -303,13 +317,13 @@ function toggleOrientation() {
         justify-content: center;
         align-items: center;
         flex: 1;
-        color: var(--color-slate-100);     
+        color: var(--color-slate-100);
         border: 1px solid var(--color-slate-100);
         padding: .7rem 1rem;
         font-family: var(--font-primary);
         font-size: 1rem;
         font-weight: 400;
-}
+    }
 }
 
 .flex {

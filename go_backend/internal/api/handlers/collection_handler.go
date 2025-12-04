@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"chess_log/go_backend/internal/api/middleware"
 	"chess_log/go_backend/internal/appcore"
 	"chess_log/go_backend/internal/helpers"
 	"chess_log/go_backend/internal/models"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type CollectionHandler struct {
@@ -16,9 +19,17 @@ type CollectionHandler struct {
 func (h *CollectionHandler) Store(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	claims, ok := r.Context().Value(middleware.ContextUserClaims).(jwt.MapClaims)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Missing auth claims!!")
+		return
+	}
+
+	userID := int64(claims["UserID"].(float64))
+
 	type Request struct {
-		UserID int64  `json:"user_id"`
-		Name   string `json:"name"`
+		Name  string `json:"name"`
+		Color string `json:"color"`
 	}
 
 	var req Request
@@ -35,15 +46,11 @@ func (h *CollectionHandler) Store(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.UserID == 0 {
-		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "user_id is required")
-		return
-	}
-
 	// Create model
 	collection := &models.Collection{
 		Name:   req.Name,
-		UserID: req.UserID,
+		Color:  req.Color,
+		UserID: userID,
 	}
 
 	// Insert into DB

@@ -25,3 +25,14 @@ https://github.com/qwerty084/vue3-chessboard#docs
 https://vue3-select-component.vercel.app/getting-started.html
 
     $ npm add vue3-select-component
+
+
+<!-- --------------------------------------------------------------- -->
+
+## vue-loading-overlay
+
+https://www.npmjs.com/package/vue-loading-overlay
+
+    $ npm install vue-loading-overlay
+
+<!-- --------------------------------------------------------------- -->

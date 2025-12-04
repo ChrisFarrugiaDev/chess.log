@@ -9,7 +9,8 @@ import (
 	"github.com/upper/db/v4"
 )
 
-var ErrDuplicateUser = errors.New("user with this name already exists")
+var ErrDuplicateUser = errors.New("user with this email already exists")
+var ErrUserNotFound = errors.New("user not found")
 
 type User struct {
 	ID            int64     `db:"id,omitempty" json:"id"`
@@ -25,6 +26,8 @@ func (m *User) TableName() string {
 	return "users"
 }
 
+// ---------------------------------------------------------------------
+
 func GetUserByID(id int64) (*User, error) {
 	var user User
 
@@ -36,6 +39,19 @@ func GetUserByID(id int64) (*User, error) {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, err
+	}
+
+	return &user, nil
+}
+
+func GetUserByEmail(email string) (*User, error) {
+	var user User
+
+	col := upperSession.Collection(user.TableName())
+	err := col.Find("email", email).One(&user)
+
+	if err != nil {
+		return nil, ErrUserNotFound
 	}
 
 	return &user, nil
@@ -56,7 +72,7 @@ func (m *User) Create() (*User, error) {
 	if err != nil {
 		// Check for duplicate email (SQLSTATE 23505 = unique violation)
 		if strings.Contains(err.Error(), "SQLSTATE 23505") {
-			return nil, ErrDuplicateCollection
+			return nil, ErrDuplicateUser
 		}
 
 		// Wrap and return other errors

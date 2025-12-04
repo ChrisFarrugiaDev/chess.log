@@ -7,7 +7,7 @@ export const useDashboardStore = defineStore('dashboardStore', () => {
 
 	// ---- State ------------------------------------------------------
 
-	const isMenuOpen = ref(false);
+	const isMenuOpen = ref(true);
 	const isLoading = ref(false);
 
 	type Theme = 'light' | 'dark' ;

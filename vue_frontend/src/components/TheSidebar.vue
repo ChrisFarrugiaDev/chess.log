@@ -1,9 +1,15 @@
 <template>
-  <div class="sidebar">
+    <div class="sidebar">
 
         <div class="sidebar__item" @click="toggleMenu">
             <svg class="sidebar__svg ">
                 <use xlink:href="@/ui/svg/sprite.svg#icon-menu"></use>
+            </svg>
+        </div>
+
+        <div class="sidebar__item" @click="logout">
+            <svg class="sidebar__svg">
+                <use xlink:href="@/ui/svg/sprite.svg#icon-logout"></use>
             </svg>
         </div>
 
@@ -24,12 +30,13 @@
             </svg>
         </div>
 
-  </div>
+    </div>
 </template>
 
 <!-- --------------------------------------------------------------- -->
 
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/authStore';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useRouter } from 'vue-router';
 
@@ -42,6 +49,7 @@ const router = useRouter();
 // - Store -------------------------------------------------------------
 
 const dashboardStore = useDashboardStore();
+const authStore = useAuthStore();
 
 
 // - Methods -----------------------------------------------------------
@@ -57,6 +65,10 @@ function goToView(view: string) {
     router.push({ name: view })
 }
 
+function logout() {
+    authStore.clearJwt();     
+    router.push({ name: "loginView" });  
+}
 
 </script>
 
@@ -82,7 +94,14 @@ function goToView(view: string) {
         width: 1.5rem;
         height: 1.5rem;
         fill: var(--color-slate-200);
-        color:  var(--color-slate-200);
+        color: var(--color-slate-200);
+
+        transition: all .1s ease;
+
+        &:hover {
+            fill: var(--color-indigo-300);
+            color: var(--color-indigo-300);
+        }
     }
 
 }

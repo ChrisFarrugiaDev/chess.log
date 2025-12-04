@@ -28,6 +28,7 @@ func Routes(app *appcore.App) http.Handler {
 		r.Mount("/collections", CollectionRoutes(app))
 		r.Mount("/games", GameRoutes(app))
 		r.Mount("/auth", AuthRoutes(app))
+		r.Mount("/user", UserRoutes(app))
 		// r.Mount("/game", GameRoutes())
 	})
 

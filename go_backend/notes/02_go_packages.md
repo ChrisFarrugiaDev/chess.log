@@ -86,3 +86,13 @@ https://github.com/wneessen/go-mail
 https://pkg.go.dev/github.com/wneessen/go-mail#example-Msg.SetBodyTextTemplate
 
     go get github.com/wneessen/go-mail
+
+<!-- --------------------------------------------------------------- -->
+
+### go-playground/validator
+
+https://github.com/go-playground/validator
+
+    go get github.com/go-playground/validator/v10
+
+<!-- --------------------------------------------------------------- -->

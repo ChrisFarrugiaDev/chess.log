@@ -5,12 +5,13 @@ import (
 
 	"time"
 
-	"github.com/upper/db/v4"
+	up "github.com/upper/db/v4"
 )
 
 type Game struct {
 	ID           int64     `db:"id,omitempty" json:"id"`
 	CollectionID int64     `db:"collection_id" json:"collection_id"`
+	UserID       int64     `db:"user_id" json:"user_id"`
 	Name         string    `db:"name" json:"name"`
 	Orientation  string    `db:"orientation" json:"orientation"`
 	SortOrder    int       `db:"sort_order" json:"sort_order"`
@@ -49,7 +50,7 @@ func (m *Game) Create() (*Game, error) {
 
 func CreateGameWithMoves(ctx context.Context, game *Game, moves []*GameMove) (*Game, error) {
 
-	err := upperSession.Tx(func(tx db.Session) error {
+	err := upperSession.Tx(func(tx up.Session) error {
 
 		now := time.Now().UTC()
 
@@ -90,4 +91,19 @@ func CreateGameWithMoves(ctx context.Context, game *Game, moves []*GameMove) (*G
 	}
 
 	return game, nil
+}
+
+func (m *Game) GetByUserID(userID int64) ([]*Game, error) {
+
+	var games []*Game
+
+	_collection := upperSession.Collection(m.TableName())
+
+	err := _collection.Find(up.Cond{"user_id": userID}).OrderBy("name").All(&games)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return games, nil
 }

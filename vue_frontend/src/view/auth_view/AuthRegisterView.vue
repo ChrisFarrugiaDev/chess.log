@@ -1,5 +1,5 @@
 <template>
-    <div class="auth v-ui" data-theme="light">
+    <div class="auth v-ui" :data-theme="getTheme">
         <div class="auth__card">
 
             <!-- Title -->
@@ -85,18 +85,22 @@
 <script setup lang="ts">
 import { useApiError } from "@/composables/useApiError";
 import { useAppStore } from "@/stores/appStore";
+import { useDashboardStore } from "@/stores/dashboardStore";
 import axios from "axios";
+import { storeToRefs } from "pinia";
 import { ref } from "vue";
 
 const { errorMessage, handleApiError } = useApiError();
 
 const appStore = useAppStore();
+const dashboardStore = useDashboardStore();
+const { getTheme } = storeToRefs(dashboardStore);
 
 // - State -------------------------------------------------------------
-const name = ref("Chris");
-const email = ref("chris12aug@gmail.com");
-const password = ref("DevPass");
-const confirmPassword = ref("DevPass");
+const name = ref("");
+const email = ref("");
+const password = ref("");
+const confirmPassword = ref("");
 
 const showPassword = ref(false);
 const loading = ref(false);

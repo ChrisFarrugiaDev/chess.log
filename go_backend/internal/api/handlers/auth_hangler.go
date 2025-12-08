@@ -407,3 +407,151 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		"user":    user,
 	})
 }
+
+func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	type Request struct {
+		Email string `json:"email" validate:"required,email"`
+	}
+
+	var req Request
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request payload.")
+		return
+	}
+
+	err = h.App.Validate.Struct(req)
+	if err != nil {
+		msg := helpers.FirstValidationError(err)
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, msg)
+		return
+	}
+
+	// Check if user exists
+	user, err := models.GetUserByEmail(req.Email)
+
+	// Do NOT reveal whether the email exists
+	// Always return success (security best practice)
+	if err != nil {
+		helpers.RespondJSON(w, http.StatusOK, map[string]any{
+			"message": "If this email exists, a password reset link has been sent.",
+		})
+		return
+	}
+
+	// Generate reset token
+	jwtPayload := map[string]any{
+		"Subject": "password_reset",
+		"Email":   user.Email,
+		"UserID":  user.ID,
+	}
+
+	exp := time.Now().Add(10 * time.Minute)
+
+	resetToken, err := helpers.GenerateJWT(jwtPayload, exp)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to generate reset token.")
+		return
+	}
+
+	baseURL := os.Getenv("APP_URL")
+	link := fmt.Sprintf("%s/reset-password?token=%s", baseURL, resetToken)
+
+	plainBody, htmlBody := mailer.GeneratePasswordResetEmail(link)
+
+	msg, err := h.App.Mailer.CreateMessage(
+		user.Email,
+		"Reset your ChessLog password",
+		plainBody,
+		htmlBody,
+	)
+
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to compose password reset email.")
+		return
+	}
+
+	if err := h.App.Mailer.Send(msg); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to send password reset email.")
+		return
+	}
+
+	// Always respond with generic message for security
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "If this email exists, a password reset link has been sent.",
+	})
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	type Request struct {
+		Token     string `json:"token"`
+		Password1 string `json:"password1" validate:"required,min=6"`
+		Password2 string `json:"password2" validate:"required,min=6"`
+	}
+
+	var req Request
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request payload.")
+		return
+	}
+
+	if req.Password1 != req.Password2 {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Passwords do not match.")
+		return
+	}
+
+	if err := h.App.Validate.Struct(req); err != nil {
+		msg := helpers.FirstValidationError(err)
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, msg)
+		return
+	}
+
+	// Validate token
+	claims, err := helpers.ValidateJWT(req.Token)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, err, "Invalid or expired token.")
+		return
+	}
+
+	userID, ok := claims["UserID"].(float64)
+	email, ok2 := claims["Email"].(string)
+	subject, ok3 := claims["Subject"].(string)
+
+	if !ok || !ok2 || !ok3 || subject != "password_reset" {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Invalid token payload.")
+		return
+	}
+
+	// Get user
+	user, err := models.GetUserByID(int64(userID))
+	if err != nil || user.Email != email {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Token does not match user.")
+		return
+	}
+
+	// Hash new password
+	newHash, err := helpers.HashPassword(req.Password1)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to hash password.")
+		return
+	}
+
+	user.PasswordHash = newHash
+
+	// Update password in DB
+	err = user.Update()
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to update password.")
+		return
+	}
+
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "Password has been reset successfully.",
+	})
+}

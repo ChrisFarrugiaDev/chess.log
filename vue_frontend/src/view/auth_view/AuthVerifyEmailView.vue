@@ -1,5 +1,5 @@
 <template>
-    <div class="auth v-ui" data-theme="light">
+    <div class="auth v-ui" :data-theme="getTheme">
         <div class="auth__card">
 
             <!-- Title -->
@@ -47,14 +47,27 @@
     </div>
 </template>
 
+<!-- ----------------------------------------------------------------------- -->
+
 <script setup lang="ts">
 import { useAppStore } from "@/stores/appStore";
+import { useDashboardStore } from "@/stores/dashboardStore";
 import axios from "axios";
+import { storeToRefs } from "pinia";
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 
+// - router ------------------------------------------------------------
+
 const route = useRoute();
+
+// - store -------------------------------------------------------------
+
 const appStore = useAppStore();
+const dashboardStore = useDashboardStore();
+const { getTheme } = storeToRefs(dashboardStore);
+
+// - state -------------------------------------------------------------
 
 const loading = ref(false);
 const successMessage = ref("");
@@ -62,9 +75,8 @@ const errorMessage = ref("");
 
 const token = ref<string | null>(null);
 
-// ---------------------------------------------
-// Verify Email on mount
-// ---------------------------------------------
+// - methods -----------------------------------------------------------
+
 async function verifyEmail() {
     if (!token.value) {
         loading.value = false;
@@ -89,9 +101,7 @@ async function verifyEmail() {
     }
 }
 
-// ---------------------------------------------
-// Resend Email Verification
-// ---------------------------------------------
+
 async function resendEmail() {
     if (!token.value) {
         errorMessage.value = "Missing token. Cannot resend verification email.";
@@ -124,9 +134,7 @@ async function resendEmail() {
     }
 }
 
-// ---------------------------------------------
-// On page mount
-// ---------------------------------------------
+// - hooks -------------------------------------------------------------
 onMounted(() => {
     token.value = route.query.token as string | null;
     verifyEmail();
@@ -134,9 +142,7 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* ------------------------------------------------------
-   Auth Verify Email — Matches all auth pages
------------------------------------------------------- */
+
 
 .auth {
     width: 100vw;

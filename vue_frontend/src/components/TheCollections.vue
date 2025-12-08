@@ -4,8 +4,7 @@
         <div class="collections__item" v-for="collection in getCollections" :key="collection.id"
             :class="{ 'collections__item--selected': collection.id == getActiveCollection }"
             @click="selectCollection(Number(collection.id))">
-            <!-- Color bar -->
-            <!-- <span class="collections__color" :style="{ borderLeftColor: collection.color }">&nbsp;</span> -->
+
 
             <!-- Name or edit field -->
             <div class="collections__main">
@@ -53,12 +52,16 @@ import { ref, watch } from "vue";
 import { useChessLogStore } from "@/stores/chessLogStore";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
+import { useAppStore } from "@/stores/appStore";
+import axios from "@/axios";
 
 const router = useRouter();
 const route = useRoute();
 
 const chessLogStore = useChessLogStore();
 const { getCollections, getActiveCollection } = storeToRefs(chessLogStore);
+
+const appStore = useAppStore();
 
 const editingId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
@@ -87,24 +90,29 @@ function startEdit(collection: any) {
     editingName.value = collection.name;
 }
 
-function saveEdit(collection: any) {
+async function saveEdit(collection: any) {
     if (editingId.value !== Number(collection.id)) return;
 
-    const newName = editingName.value.trim();
-    if (!newName) return cancelEditDelete();
+    try {
+        
+        const url = `${appStore.getAppUrl}/api/collections/${collection.id}`;
 
-    console.log("EDIT COLLECTION (NOT SAVED TO BACKEND):", {
-        id: collection.id,
-        newName,
-    });
+        const newName = editingName.value.trim();
+        if (!newName) return cancelEditDelete();
 
-    collection.name = newName;
+        const r = await axios.put(url, {name: newName});
 
-    editingId.value = null;
-    editingName.value = "";
+        if (r.statusText == "OK") {
+            collection.name = newName;    
+            editingId.value = null;
+            editingName.value = "";
+        }
+
+    } catch (err) {
+        console.error("! TheCollections saveEdit !\n", err)
+    }
 }
 
-// ---- Delete Handlers ----
 
 function startDelete(collection: any) {
     editingId.value = null;
@@ -112,22 +120,34 @@ function startDelete(collection: any) {
     editingName.value = "";
 }
 
-function deleteCollection(collection: any) {
-    console.log("DELETE COLLECTION (NOT SAVED TO BACKEND):", {
-        id: collection.id,
-        name: collection.name,
-    });
+async function deleteCollection(collection: any) {
 
-    // Remove from store
-    const index = getCollections.value.findIndex(c => c.id == collection.id);
-    if (index !== -1) getCollections.value.splice(index, 1);
+    try {
 
-    // If selected collection is deleted, reset active collection
-    if (getActiveCollection.value === collection.id) {
-        chessLogStore.setActiveCollection(null);
+        const url = `${appStore.getAppUrl}/api/collections/${collection.id}`;
+
+        const r = await axios.delete(url);
+
+        if (r.statusText == "OK") {
+
+
+            const index = getCollections.value.findIndex(c => c.id == collection.id);
+            if (index !== -1) getCollections.value.splice(index, 1);
+    
+            // If selected collection is deleted, reset active collection
+            if (getActiveCollection.value === collection.id) {
+                chessLogStore.setActiveCollection(0);
+            }
+    
+            deletingId.value = null;
+
+        }
+  
+
+    } catch (err) {
+        console.error("! deleteCollection ! \n", err)
     }
 
-    deletingId.value = null;
 }
 
 function editOrDelete(collection: any) {
@@ -150,8 +170,6 @@ function cancelEditDelete() {
     font-family: var(--font-primary);
     color: var(--color-text-1);
     font-size: .9rem;
-
-
 
 
     &__item {

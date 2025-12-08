@@ -7,21 +7,41 @@
 			<p class="game-view__subtitle">
 				{{ moves.length }} moves — {{ game.orientation === 'white' ? 'White' : 'Black' }} to start
 			</p>
+
+			<button class="game-view__toggle-btn vbtn vbtn--sky" @click="isSingleView = !isSingleView">
+				{{ isSingleView ? "Show All Positions" : "Show Step-by-Step" }}
+			</button>
 		</div>
 
-		<!-- Grid of positions -->
-		<div class="game-view__grid">
-			<div v-for="(m, index) in moves" :key="index" class="game-view__item">
+		<template v-if="game && moves">
 
 
-				<MyChessBoardPosition :after="m.after!" :before="m.before!" :from_square="m.from!" :to_square="m.to!"
-					class="game-view__board" />
+			<div class="game-view__one_item" v-show="isSingleView">
+				<MyChessBoard :moves="moves" :orientation="game?.orientation!" :reset="Number(props.gameId)"
+					@updatePostion="currentPostion = $event" />
 
 				<p class="game-view__move-label">
-					Move {{ m.move_number! + 1 }} — <strong>{{ m.san }}</strong>
+					Move {{ moves[currentPostion]!.move_number! + 1 }} — <strong>{{ moves[currentPostion]!.san
+						}}</strong>
 				</p>
 			</div>
-		</div>
+
+
+			<!-- Grid of positions -->
+			<div class="game-view__grid" v-show="!isSingleView">
+
+				<div v-for="(m, index) in moves" :key="index" class="game-view__item">
+
+					<MyChessBoardPosition :after="m.after!" :before="m.before!" :from_square="m.from!"
+						:to_square="m.to!" :orientation="game?.orientation!" class="game-view__board" />
+
+					<p class="game-view__move-label">
+						Move {{ m.move_number! + 1 }} — <strong>{{ m.san }}</strong>
+					</p>
+				</div>
+			</div>
+		</template>
+
 
 	</div>
 </template>
@@ -30,13 +50,15 @@
 
 <script setup lang="ts">
 import { useChessLogStore } from '@/stores/chessLogStore';
-import { ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import type { Move } from '@/types/move.type';
 import MyChessBoardPosition from '@/components/MyChessBoardPosition .vue';
+import MyChessBoard from '@/components/MyChessBoard.vue';
 import type { Game } from '@/types/game.type';
-import MiniChessBoard from '@/components/MiniChessBoard.vue';
+
 
 const chessLogStore = useChessLogStore();
+const isSingleView = ref(true);
 
 const props = defineProps<{
 	gameId: string,
@@ -46,17 +68,38 @@ const props = defineProps<{
 const moves = ref<Move[]>([]);
 const game = ref<Game | null>(null);
 
+
+const currentPostion = ref(0);
+
+async function loadGame() {
+	const gameID = props.gameId; 
+	const mm = await chessLogStore.getGameMoves(gameID);
+	moves.value = mm;
+
+	const gg = await chessLogStore.getGame(props.collectionId, gameID);
+	if (gg) game.value = gg;
+}
+
 watch(
 	() => props.gameId,
-	async (gameID) => {
-		const mm = await chessLogStore.getGameMoves(gameID);
-		moves.value = mm;
-
-		const gg = await chessLogStore.getGame(props.collectionId, gameID);
-		if (gg) game.value = gg;
+	async () => {
+		loadGame();	
 	},
 	{ immediate: true }
 );
+
+onMounted(async () => {
+	if (props.collectionId) {
+		chessLogStore.setActiveCollection(Number(props.collectionId));
+	}
+	if (props.gameId) {
+		chessLogStore.setActiveGame(Number(props.gameId));
+	}
+	loadGame();
+
+})
+
+
 </script>
 
 <!-- --------------------------------------------------------------- -->
@@ -88,14 +131,20 @@ watch(
 		font-family: var(--font-primary);
 	}
 
+	&__toggle-btn {
+		width: 12rem;
+		margin: 1rem auto;
+	}
+
 	/* Grid of boards */
 	&__grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 		gap: 1.5rem;
 	}
 
-	&__item {
+	&__item,
+	&__one_item {
 		background: var(--color-slate-50);
 		padding: 1rem;
 		border-radius: 8px;
@@ -105,6 +154,12 @@ watch(
 		flex-direction: column;
 		align-items: center;
 		font-family: var(--font-primary);
+	}
+
+	&__one_item {
+
+		width: fit-content;
+		margin: 0 auto;
 	}
 
 	&__board {
@@ -119,5 +174,7 @@ watch(
 		font-size: 0.9rem;
 		color: var(--color-slate-700);
 	}
+
+
 }
 </style>

@@ -15,22 +15,45 @@
         </section>
 
         <section class="game-form">
+
+            <!-- Error -->
+            <p v-if="errorMessage" class="game-form__error">{{ errorMessage }}</p>
+
+
+            <div class="game-form__field" v-if="!gameState.create_collection">
+                <label class="game-form__label" for="select-collection">Collection</label>
+                <VueSelect v-model="gameState.collection_id" id="select-collection" :style="[vueSelectStyles]"
+                    :options="collectionOptions" label-by="label" value-by="value" placeholder="Select collection"
+                    class="game-form__select" />
+            </div>
+
+            <div class="game-form__field" v-if="gameState.create_collection">
+                <label class="game-form__label" for="collection_name">Collection Name</label>
+                <input v-model="gameState.collection_name" id="collection_name" type="text" class="game-form__input"
+                    placeholder="Enter collection name…" />
+            </div>
+
+
+
+
+
             <div class="game-form__field">
-                <label class="game-form__label">Collection</label>
-                <VueSelect v-model="gameState.collection_id" :options="collectionOptions" label-by="label"
-                    value-by="value" placeholder="Select collection" class="game-form__select" />
+                <label class="game-form__label cursor-pointer">
+                    <input type="checkbox" v-model="gameState.create_collection" />
+                    Create new collection
+                </label>
             </div>
 
             <div class="game-form__field">
-                <label class="game-form__label">Game name</label>
-                <input v-model="gameState.name" type="text" class="game-form__input"
-                    placeholder="e.g. Reti – Bg4 Ne5 idea" />
+                <label class="game-form__label" for="name">Game name</label>
+                <input v-model="gameState.name" id="name" type="text" class="game-form__input"
+                    placeholder="e.g. Reti - Bg4 Ne5 idea" />
             </div>
 
 
             <div class="game-form__field game-form__field--full">
-                <label class="game-form__label">Notes</label>
-                <textarea v-model="gameState.notes" rows="3" class="game-form__textarea"
+                <label class="game-form__label" for="notes">Notes</label>
+                <textarea v-model="gameState.notes" id="notes" rows="3" class="game-form__textarea"
                     placeholder="Ideas, plans, why this game is important..."></textarea>
             </div>
 
@@ -62,15 +85,20 @@ import { TheChessboard, type BoardApi, type MoveEvent } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
 import VueSelect from "vue3-select-component";
+import { useApiError } from '@/composables/useApiError';
+import { useDashboardStore } from '@/stores/dashboardStore';
 
+// - Composable --------------------------------------------------------
+const { errorMessage, handleApiError } = useApiError();
+const vueSelectStyles = useVueSelectStyles();
 
 // - Store -------------------------------------------------------------
 
 const chessLogStore = useChessLogStore();
+const dashboardStore = useDashboardStore();
 
 // - State -------------------------------------------------------------
 
-const vueSelectStyles = useVueSelectStyles();
 
 // Internal board API reference
 const boardApi = ref<BoardApi | null>(null);
@@ -79,13 +107,17 @@ const boardApi = ref<BoardApi | null>(null);
 const gameState = ref({
     id: null,
     collection_id: null as null | number,
-    name: null,
+    collection_name: "",
+
+    create_collection: false,
+    name: "",
     orientation: "white",
     notes: null,
 });
 
-const movesState = ref<MoveEvent[]>([]);
 
+
+const movesState = ref<MoveEvent[]>([]);
 
 const collectionOptions = ref<Option<number>[]>([]);
 
@@ -113,8 +145,8 @@ watch(
 
 function initSaveGame() {
     if (
-        !gameState.value.collection_id ||
-        !gameState.value.name ||
+        (!gameState.value.create_collection && !gameState.value.collection_id) ||
+        (gameState.value.create_collection && !gameState.value.name) ||
         movesState.value.length < 3
     ) {
         return
@@ -122,16 +154,21 @@ function initSaveGame() {
     confirmOn.value = true;
 }
 
-function saveGame() {
+async function saveGame() {
+    errorMessage.value = "";
+
     const moves: Move[] = [];
 
     const game: Game = {
-        collection_id: gameState.value.collection_id!,
+        create_collection: gameState.value.create_collection,  
+        collection_name: gameState.value.collection_name ?? "",
+        collection_id: gameState.value.collection_id ?? 0,
         name: gameState.value.name!,
         orientation: gameState.value.orientation,
         notes: gameState.value.notes ?? "",
-
     }
+
+
 
     movesState.value.forEach((m, i) => {
         const movie: Move = {
@@ -151,7 +188,28 @@ function saveGame() {
     });
 
 
-    chessLogStore.saveGame(game, moves)
+    try {
+        dashboardStore.setIsLoading(true);
+        await chessLogStore.saveGame(game, moves);
+
+        await chessLogStore.fetchProfile();
+
+
+        gameState.value.id = null;
+        gameState.value.collection_id = null;
+        gameState.value.collection_name = ""; 
+        gameState.value.create_collection = false;
+        gameState.value.name = "";
+        gameState.value.orientation = "white";
+        gameState.value.notes = null;
+
+        resetBoard();
+
+    } catch (err) {
+        handleApiError(err);
+    } finally {
+        setTimeout(() => { dashboardStore.setIsLoading(false) }, 1000);
+    }
 }
 
 // Called by vue3-chessboard when ready
@@ -220,7 +278,7 @@ function toggleOrientation() {
 .the-chess-board {
     width: 100%;
     padding: 1rem;
-    opacity: .9;
+    opacity: 0.9;
 
 }
 
@@ -271,6 +329,12 @@ function toggleOrientation() {
         font-family: var(--font-primary);
         font-size: 1rem;
         color: var(--color-slate-700);
+        font-display: flex;
+        align-items: center;
+
+        input {
+            transform: translateY(1px);
+        }
     }
 
     &__input,
@@ -323,6 +387,20 @@ function toggleOrientation() {
         font-family: var(--font-primary);
         font-size: 1rem;
         font-weight: 400;
+    }
+
+    &__error {
+        color: var(--color-red-500);
+        text-align: center;
+        font-size: .85rem;
+        margin-top: -0.5rem;
+    }
+
+    &__message {
+        color: var(--color-green-500);
+        text-align: center;
+        font-size: .85rem;
+        margin-top: -0.5rem;
     }
 }
 

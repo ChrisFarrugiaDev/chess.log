@@ -8,7 +8,7 @@
 
 		<!-- Pages -->
 		<template v-for="(p, i) in pagesToShow(page, pageCount)" :key="`p-${p}`">
-			<span v-if="i > 0 && isGap(pagesToShow(page, pageCount)[i - 1], p)" class="vpager__ellipsis"
+			<span v-if="i > 0 && isGap(pagesToShow(page, pageCount)[i - 1] ?? 0, p)" class="vpager__ellipsis"
 				aria-hidden="true">…</span>
 
 			<button class="vpager__btn vpager__btn--page" :class="{ 'vpager__btn--active': p === page }" @click="go(p)"

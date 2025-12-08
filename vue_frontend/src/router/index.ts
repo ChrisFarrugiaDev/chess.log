@@ -2,6 +2,7 @@ import { useAuthStore } from '@/stores/authStore'
 import AuthForgotPasswordView from '@/view/auth_view/AuthForgotPasswordView.vue'
 import AuthLogoinView from '@/view/auth_view/AuthLogoinView.vue'
 import AuthRegisterView from '@/view/auth_view/AuthRegisterView.vue'
+import AuthResetPasswordView from '@/view/auth_view/AuthResetPasswordView.vue'
 import AuthVerifyEmailView from '@/view/auth_view/AuthVerifyEmailView.vue'
 import DashboardView from '@/view/DashboardView.vue'
 import GameCreateView from '@/view/GameCreateView.vue'
@@ -31,7 +32,8 @@ const router = createRouter({
 		{ path: '/login', name: 'loginView', component: AuthLogoinView, props: true,  meta: { requiresAuth: false, requiresGuest: true } },
 		{ path: '/register', name: 'registerView', component: AuthRegisterView, props: true, meta: { requiresAuth: false, requiresGuest: true } },
 		{ path: '/forgot-password', name: 'forgotPasswordView', component: AuthForgotPasswordView, props: true, meta: { requiresAuth: false, requiresGuest: true } },
-		{ path: "/verify-email", name: "verifyEmail", component: AuthVerifyEmailView, meta: { requiresAuth: false, requiresGuest: true } }
+		{ path: "/verify-email", name: "verifyEmail", component: AuthVerifyEmailView, meta: { requiresAuth: false, requiresGuest: true } },
+		{ path: "/reset-password", name: "resetPassword", component: AuthResetPasswordView, meta: { requiresAuth: false, requiresGuest: true } },
 	],
 });
 
@@ -44,9 +46,9 @@ router.beforeEach((to, from, next) => {
     const requiresGuest = to.meta.requiresGuest === true;
 
     // If user is already logged in → block access to login/register/etc
-    if (requiresGuest && isAuthenticated.value) {
-        return next({ name: 'dashboadView' });
-    }
+    // if (requiresGuest && isAuthenticated.value) {
+    //     return next({ name: 'dashboadView' });
+    // }
 
     // If route requires auth but not authenticated → redirect to login
     if (requiresAuth && !isAuthenticated.value) {

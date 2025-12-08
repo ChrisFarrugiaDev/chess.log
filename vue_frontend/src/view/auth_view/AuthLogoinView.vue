@@ -1,5 +1,5 @@
 <template>
-    <div class="auth v-ui" data-theme="light">
+    <div class="auth v-ui" :data-theme="getTheme">
         <div class="auth__card">
 
             <!-- Title -->
@@ -79,6 +79,8 @@ import { useAppStore } from "@/stores/appStore";
 import { useApiError } from "@/composables/useApiError";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/authStore";
+import { useDashboardStore } from "@/stores/dashboardStore";
+import { storeToRefs } from "pinia";
 
 
 // - Cpmposable --------------------------------------------------------
@@ -90,6 +92,9 @@ const router = useRouter();
 // - Store -------------------------------------------------------------
 const appStore = useAppStore();
 const authStore = useAuthStore();
+
+const dashboardStore = useDashboardStore();
+const { getTheme } = storeToRefs(dashboardStore);
 
 // - State -------------------------------------------------------------
 

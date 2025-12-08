@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
@@ -44,10 +45,12 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type GameReq struct {
-		CollectionID int64   `json:"collection_id"`
-		Name         string  `json:"name"`
-		Orientation  string  `json:"orientation"`
-		Notes        *string `json:"notes"`
+		CreateCollection bool    `json:"create_collection"`
+		CollectionName   string  `json:"collection_name"`
+		CollectionID     int64   `json:"collection_id"`
+		Name             string  `json:"name"`
+		Orientation      string  `json:"orientation"`
+		Notes            *string `json:"notes"`
 	}
 
 	type Request struct {
@@ -64,9 +67,19 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ----- Validation -----
-	if req.Game.CollectionID == 0 {
-		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "collection_id is required")
-		return
+	// Case 1: Creating a new collection
+	if req.Game.CreateCollection {
+		if strings.TrimSpace(req.Game.CollectionName) == "" {
+			helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "collection_name is required when create_collection is true")
+			return
+		}
+
+	} else {
+		// Case 2: Must reference an existing collection
+		if req.Game.CollectionID == 0 {
+			helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "collection_id is required when not creating a new collection")
+			return
+		}
 	}
 
 	if req.Game.Name == "" {
@@ -113,7 +126,7 @@ func (h *GameHandler) Store(w http.ResponseWriter, r *http.Request) {
 
 	// ----- Save game + moves using transaction -----
 	ctx := r.Context()
-	savedGame, err := models.CreateGameWithMoves(ctx, newGame, moveModels)
+	savedGame, err := models.CreateGameWithMoves(ctx, newGame, moveModels, req.Game.CreateCollection, req.Game.CollectionName)
 	if err != nil {
 		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to create game")
 		return
@@ -155,4 +168,95 @@ func (h *GameHandler) GetMoves(w http.ResponseWriter, r *http.Request) {
 		"moves":   moves,
 	})
 
+}
+
+func (h *GameHandler) Rename(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// --- Auth ---
+	claims, ok := r.Context().Value(middleware.ContextUserClaims).(jwt.MapClaims)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Missing auth claims")
+		return
+	}
+	userID := int64(claims["UserID"].(float64))
+
+	// --- Game ID ---
+	idParam := chi.URLParam(r, "id")
+	if idParam == "" {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Missing game id")
+		return
+	}
+
+	gameID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid game id")
+		return
+	}
+
+	// --- Decode request ---
+	type Req struct {
+		Name string `json:"name"`
+	}
+
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid request payload")
+		return
+	}
+
+	if strings.TrimSpace(req.Name) == "" {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Game name cannot be empty")
+		return
+	}
+
+	// --- Update in DB ---
+	err = models.RenameGame(gameID, userID, req.Name)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to rename game")
+		return
+	}
+
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "Game renamed successfully",
+		"id":      gameID,
+		"name":    req.Name,
+	})
+}
+
+func (h *GameHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// --- Auth ---
+	claims, ok := r.Context().Value(middleware.ContextUserClaims).(jwt.MapClaims)
+	if !ok {
+		helpers.RespondErrorJSON(w, http.StatusUnauthorized, nil, "Missing auth claims")
+		return
+	}
+	userID := int64(claims["UserID"].(float64))
+
+	// --- URL param ---
+	idParam := chi.URLParam(r, "id")
+	if idParam == "" {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, nil, "Missing game id")
+		return
+	}
+
+	gameID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusBadRequest, err, "Invalid game id")
+		return
+	}
+
+	// --- Delete ---
+	err = models.DeleteGame(gameID, userID)
+	if err != nil {
+		helpers.RespondErrorJSON(w, http.StatusInternalServerError, err, "Failed to delete game")
+		return
+	}
+
+	helpers.RespondJSON(w, http.StatusOK, map[string]any{
+		"message": "Game deleted successfully",
+		"id":      gameID,
+	})
 }

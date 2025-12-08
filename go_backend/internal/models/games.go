@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"time"
 
@@ -48,11 +49,40 @@ func (m *Game) Create() (*Game, error) {
 
 // ---------------------------------------------------------------------
 
-func CreateGameWithMoves(ctx context.Context, game *Game, moves []*GameMove) (*Game, error) {
+func CreateGameWithMoves(
+
+	ctx context.Context,
+	game *Game,
+	moves []*GameMove,
+	createCollection bool,
+	collectionName string,
+
+) (*Game, error) {
 
 	err := upperSession.Tx(func(tx up.Session) error {
 
 		now := time.Now().UTC()
+
+		// ---------------------------------------------------
+		// 0. Create collection if requested
+		// ---------------------------------------------------
+		if createCollection {
+			newCollection := &Collection{
+				UserID:    game.UserID,
+				Name:      collectionName,
+				SortOrder: 0, // optional: auto-assign later
+				CreatedAt: now,
+				UpdatedAt: now,
+			}
+
+			col := tx.Collection((&Collection{}).TableName())
+			if err := col.InsertReturning(newCollection); err != nil {
+				return err // rollback
+			}
+
+			// assign to game
+			game.CollectionID = newCollection.ID
+		}
 
 		// -------------------------------------------
 		// 1. Insert game
@@ -107,3 +137,58 @@ func (m *Game) GetByUserID(userID int64) ([]*Game, error) {
 
 	return games, nil
 }
+
+// ---------------------------------------------------------------------
+
+func RenameGame(gameID int64, userID int64, newName string) error {
+	col := upperSession.Collection((&Game{}).TableName())
+
+	now := time.Now().UTC()
+
+	// Only allow renaming if the game belongs to the user
+	res := col.Find(up.Cond{
+		"id":      gameID,
+		"user_id": userID,
+	})
+
+	// Ensure game exists
+	count, err := res.Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("game not found or unauthorized")
+	}
+
+	// Update
+	return res.Update(map[string]any{
+		"name":       newName,
+		"updated_at": now,
+	})
+}
+
+// ---------------------------------------------------------------------
+
+func DeleteGame(gameID int64, userID int64) error {
+
+	gameCol := upperSession.Collection((&Game{}).TableName())
+
+	// Ensure ownership
+	res := gameCol.Find(up.Cond{
+		"id":      gameID,
+		"user_id": userID,
+	})
+
+	count, err := res.Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("game not found or unauthorized")
+	}
+
+	// Delete the game — Postgres deletes its moves automatically
+	return res.Delete()
+}
+
+// ---------------------------------------------------------------------

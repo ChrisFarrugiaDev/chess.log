@@ -11,14 +11,21 @@ import (
 func CollectionRoutes(app *appcore.App) chi.Router {
 	r := chi.NewRouter()
 
-	colletionHandler := &handlers.CollectionHandler{
+	collectionHandler := &handlers.CollectionHandler{
 		App: app,
 	}
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(middleware.JWTAuthMiddleware)
 
-		pr.Post("/", colletionHandler.Store)
+		// Create collection
+		pr.Post("/", collectionHandler.Store)
+
+		// Rename collection
+		pr.Put("/{id}", collectionHandler.Rename)
+
+		// Delete collection
+		pr.Delete("/{id}", collectionHandler.Delete)
 	})
 
 	return r

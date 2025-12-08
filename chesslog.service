@@ -1,0 +1,21 @@
+[Unit]
+Description=ChessLog Go Backend
+After=network.target
+
+[Service]
+Type=simple
+
+# Run from your project directory
+WorkingDirectory=/home/ubuntu/projects/chess.log/go_backend
+
+# Run your compiled binary
+ExecStart=/home/ubuntu/projects/chess.log/go_backend/chesslog
+
+Restart=on-failure
+RestartSec=3
+
+# Run as ubuntu user
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target

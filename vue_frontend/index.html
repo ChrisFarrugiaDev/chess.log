@@ -2,12 +2,15 @@
 <html lang="">
   <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="/chess-pawn.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <title>ChessLog</title>
   </head>
   <body>
     <div id="app"></div>
+    	<script>
+		window.GO_APP_URL = "{{ .GO_APP_URL }}";
+	</script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

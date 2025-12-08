@@ -17,7 +17,8 @@ const props = defineProps<{
     after: string,
     before: string
     from_square: string,
-    to_square: string
+    to_square: string,
+    orientation: string ,
 
     // default: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
 }>()
@@ -42,14 +43,20 @@ function onBoardCreated(api: BoardApi) {
 
         setTimeout(() => {
 
-            api.setShapes([
-                {
-                    orig: props.from_square as any,
-                    dest: props.to_square as any,
-                    brush: 'green',
-                },
-            ]);
-        }, 100)
+            if (props.orientation == "black") {
+                
+                boardApi.value!.toggleOrientation();
+            }
+
+            // for this to work need to switch to v-if from v-show
+            // api.setShapes([
+            //     {
+            //         orig: props.from_square as any,
+            //         dest: props.to_square as any,
+            //         brush: 'green',
+            //     },
+            // ]);
+        }, 50)
     }
 }
 </script>
@@ -59,8 +66,8 @@ function onBoardCreated(api: BoardApi) {
 <style lang="scss" scoped>
 // Placeholder comment to ensure global styles are imported correctly
 .the-chess-board {
-    width: 20rem;
-    height: 20rem;
+    width: 18rem;
+    height: 18rem;
     padding: 1rem;
     opacity: 1;
 

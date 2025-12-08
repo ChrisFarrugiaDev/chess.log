@@ -53,6 +53,9 @@ import { computed, ref, watch } from "vue";
 import { useChessLogStore } from "@/stores/chessLogStore";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
+import type { Game } from "@/types/game.type";
+import { useAppStore } from "@/stores/appStore";
+import axios from "@/axios";
 
 const router = useRouter();
 const route = useRoute();
@@ -64,6 +67,8 @@ const route = useRoute();
 
 const chessLogStore = useChessLogStore();
 const { getGames, getActiveGame, getActiveCollection } = storeToRefs(chessLogStore);
+
+const appStore = useAppStore();
 
 // - State -------------------------------------------------------------
 const deletingGameId = ref<number | null>(null);
@@ -94,7 +99,7 @@ watch(
 
 // - Methods -----------------------------------------------------------
 
-function startEdit(game: Record<string, string | number>) {
+function startEdit(game: Game) {
 
     // if (props.gameId != game.id) { return }
 
@@ -103,7 +108,7 @@ function startEdit(game: Record<string, string | number>) {
     editingName.value = String(game.name ?? "");
 }
 
-function startDelete(game: Record<string, string | number>) {
+function startDelete(game: Game) {
     // if (props.gameId != game.id) { return }
 
     deletingGameId.value = Number(game.id);
@@ -112,53 +117,69 @@ function startDelete(game: Record<string, string | number>) {
 }
 
 
-function saveEdit(game: Record<string, string | number>) {
+async function saveEdit(game: Game) {
     if (editingGameId.value !== Number(game.id)) return;
 
     const newName = editingName.value.trim();
-    if (!newName) {
-        // empty → just cancel
+    if (!newName) {  
         cancelEditDelete();
         return;
     }
+    
+    try {
+        const url = `${appStore.getAppUrl}/api/games/${game.id}`;
+        
+        const r = await axios.put(url, {name: newName});
 
-    console.log("SAVE GAME NAME (not sent to backend yet):", {
-        id: Number(game.id),
-        newName,
-    });
+        if (r.statusText == "OK") {
 
-    // update locally so UI reflects the change
-    (game as any).name = newName;
+            (game as any).name = newName;
+        
+            editingGameId.value = null;
 
-    editingGameId.value = null;
-    editingName.value = "";
+            editingName.value = "";
+        }
+        
+    } catch (err) {
+        console.error("! TheGames saveEdit !\n", err)
+    }
 }
 
 
-function deleteGame(game: Record<string, string | number>) {
-    console.log("DELETE GAME (not sent to backend yet):", {
-        id: Number(game.id),
-        name: game.name,
-    });
+async function deleteGame(game: Game) {
 
-    const collectionId = route.params.collectionId
+    try {
+
+        const url = `${appStore.getAppUrl}/api/games/${game.id}`;
+
+        const r = await axios.delete(url);
+
+        if (r.statusText == "OK") { 
+
+            const collectionId = route.params.collectionId
     
-    if (!collectionId) return
+            if (!collectionId) return
+    
+            const games = chessLogStore.getGames(collectionId as string)
+    
+            const index = games.findIndex(gg => gg.id == getGameId.value)
+    
+            games.splice(index, 1);
+    
+            if (getGameId.value == game.id) {
+                router.push(`/`);
+            }
+    
+            deletingGameId.value = null;
+        }
 
-    const games = chessLogStore.getGames(collectionId as string)
-
-    const index = games.findIndex(gg => gg.id == getGameId.value)
-
-    games.splice(index, 1);
-
-    if (getGameId.value == game.id) {
-        router.push(`/`);
+    } catch (err) {
+        console.error("! deleteGame !\n")
     }
 
-    deletingGameId.value = null;
 }
 
-function editOrDelete (game: Record<string, string | number>) {
+function editOrDelete (game: Game) {
     if ( deletingGameId.value) {
         deleteGame(game);
     }

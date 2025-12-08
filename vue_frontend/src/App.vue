@@ -20,8 +20,6 @@ const authStore = useAuthStore();
 const chessLogStore = useChessLogStore();
 
 
-
-
 watch(()=>authStore.isAuthenticated, async (val) => {
 	if (val) {	
 		await chessLogStore.fetchProfile();

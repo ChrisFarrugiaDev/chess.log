@@ -18,8 +18,17 @@ func GameRoutes(app *appcore.App) chi.Router {
 	r.Group(func(pr chi.Router) {
 		pr.Use(middleware.JWTAuthMiddleware)
 
+		// Create new game + moves
 		pr.Post("/", gameHandler.Store)
+
+		// Fetch moves for a game
 		pr.Get("/moves/{game_id}", gameHandler.GetMoves)
+
+		// Rename game
+		pr.Put("/{id}", gameHandler.Rename)
+
+		// Delete game
+		pr.Delete("/{id}", gameHandler.Delete)
 	})
 
 	return r

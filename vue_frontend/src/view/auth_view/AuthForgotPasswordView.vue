@@ -1,5 +1,5 @@
 <template>
-    <div class="auth v-ui" data-theme="light">
+    <div class="auth v-ui" :data-theme="getTheme">
         <div class="auth__card">
 
             <!-- Title -->
@@ -11,6 +11,12 @@
             </h1>
 
             <p class="auth__subtitle">Enter your email to receive a reset link</p>
+
+                        <!-- Loading -->
+            <div v-if="loading" class="auth__loading">
+                <div class="auth__spinner"></div>
+                <p class="auth__loading-text">Please wait…</p>
+            </div>
 
             <!-- Error -->
             <p v-if="errorMessage" class="auth__error">{{ errorMessage }}</p>
@@ -44,13 +50,33 @@
     </div>
 </template>
 
+<!-- --------------------------------------------------------------- -->
+
 <script setup lang="ts">
+import { useApiError } from "@/composables/useApiError";
+import { useAppStore } from "@/stores/appStore";
+import axios from "@/axios";
 import { ref } from "vue";
+import { useDashboardStore } from "@/stores/dashboardStore";
+import { storeToRefs } from "pinia";
+
+// - composable --------------------------------------------------------
+const { errorMessage, handleApiError } = useApiError();
+
+// - store -------------------------------------------------------------
+
+const appStore = useAppStore();
+const dashboardStore = useDashboardStore();
+const { getTheme } = storeToRefs(dashboardStore);
+
+// - state -------------------------------------------------------------
 
 const email = ref("");
 const loading = ref(false);
-const errorMessage = ref("");
+
 const successMessage = ref("");
+
+// - methods -----------------------------------------------------------
 
 async function submitForgotPassword() {
     loading.value = true;
@@ -64,14 +90,35 @@ async function submitForgotPassword() {
         return;
     }
 
-    // Simulate request
-    setTimeout(() => {
-        loading.value = false;
+    try {
+        const url = `${appStore.getAppUrl}/api/auth/forgot-password`;
+
+        const r = await axios.post(url, {email: email.value});
+        // --- Success message ---
         successMessage.value =
+            r.data?.message ||
             "If an account exists, a reset link has been sent to your email.";
-    }, 1000);
+
+        // Clear inputs
+        email.value = "";
+
+
+    } catch (err) {
+        handleApiError(err);
+    } finally {
+        loading.value = false;
+    }
+
+    // // Simulate request
+    // setTimeout(() => {
+    //     loading.value = false;
+    //     successMessage.value =
+    //         "If an account exists, a reset link has been sent to your email.";
+    // }, 1000);
 }
 </script>
+
+<!-- --------------------------------------------------------------- -->
 
 <style scoped lang="scss">
 /* ------------------------------------------------------
@@ -220,6 +267,28 @@ async function submitForgotPassword() {
         color: var(--color-text-4);
         opacity: .7;
     }
+
+        /* Loading state */
+    &__loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .8rem;
+    }
+
+    &__spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--color-slate-400);
+        border-top-color: var(--color-indigo-500);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    &__loading-text {
+        color: var(--color-text-4);
+        font-size: .85rem;
+    }
 }
 
 @keyframes fadeIn {
@@ -231,6 +300,12 @@ async function submitForgotPassword() {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }
 </style>

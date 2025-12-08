@@ -42,7 +42,7 @@ apiClient.interceptors.response.use(
         const authStore = useAuthStore();
 
         if (status === 401 && authStore.isAuthenticated) {
-            console.warn("401 caught → clearing JWT & redirecting to login");
+            console.warn("401 caught → clearing JWT & redirecting to login");     
 
             authStore.clearJwt();
 

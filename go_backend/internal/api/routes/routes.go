@@ -32,5 +32,7 @@ func Routes(app *appcore.App) http.Handler {
 		// r.Mount("/game", GameRoutes())
 	})
 
+	mux.Mount("/", SpaRoutes())
+
 	return mux
 }

@@ -35,8 +35,6 @@
 
 
 
-
-
             <div class="game-form__field">
                 <label class="game-form__label cursor-pointer">
                     <input type="checkbox" v-model="gameState.create_collection" />
@@ -48,6 +46,25 @@
                 <label class="game-form__label" for="name">Game name</label>
                 <input v-model="gameState.name" id="name" type="text" class="game-form__input"
                     placeholder="e.g. Reti - Bg4 Ne5 idea" />
+            </div>
+
+
+
+            <div class="flex">
+
+                <div class="game-form__field fen-input">
+                    <label class="game-form__label" for="start-fen">Custom Starting Position</label>
+                    <input v-model="startFen" id="start-fen" type="text" class="game-form__input"
+                        placeholder="Paste FEN string here" :disabled="movesState.length > 0"/>
+                </div>
+
+                <button  
+                    class="vbtn  
+                    fen-btn" 
+                    @click="setFen" 
+                    :class="{'vbtn--slate': movesState.length, 'vbtn--sky': !movesState.length}" 
+                    :disabled="movesState.length > 0">Set Position
+                </button>
             </div>
 
 
@@ -117,7 +134,9 @@ const gameState = ref({
 
 
 
-const movesState = ref<MoveEvent[]>([]);
+const movesState = ref<Partial<MoveEvent>[]>([]);
+
+const startFen = ref<string>("");
 
 const collectionOptions = ref<Option<number>[]>([]);
 
@@ -243,7 +262,7 @@ function undoMove() {
     const lastMove = movesState.value.pop();
 
     // set board to previous FEN
-    boardApi.value.setPosition(lastMove!.before);
+    boardApi.value.setPosition(lastMove!.before!);
 }
 
 function toggleOrientation() {
@@ -252,6 +271,29 @@ function toggleOrientation() {
 
     gameState.value.orientation =
         gameState.value.orientation === "white" ? "black" : "white";
+}
+
+function setFen() {
+    const api = boardApi.value;
+    if (!api) return;
+    api.setPosition(startFen.value);
+
+    const m: Partial<MoveEvent>  = {
+        after: startFen.value,
+        before: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        color: api.getTurnColor() == "black" ? "w" : "b",
+        flags: "",
+        from: "a1",
+        lan: "",
+        piece: "p",
+        san: "",
+        to: "a1",
+    }
+
+    movesState.value.push(m);
+
+    console.log(movesState.value)
+     
 }
 
 </script>
@@ -273,6 +315,19 @@ function toggleOrientation() {
 
 .chess {
     flex: 1;
+}
+.flex {
+    display: flex;
+    align-items: end;
+}
+
+.fen-input {
+    flex: 1;
+}
+.fen-btn {
+    width: 8rem;
+    height: 
+3rem;
 }
 
 .the-chess-board {

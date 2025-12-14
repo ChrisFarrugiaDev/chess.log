@@ -161,6 +161,7 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload
 sudo systemctl start chesslog
 sudo systemctl enable chesslog
+sudo systemctl restart chesslog.service
 ```
 
 Check logs:

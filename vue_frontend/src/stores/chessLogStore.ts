@@ -45,17 +45,28 @@ export const useChessLogStore = defineStore('chessLogStore', () => {
 
 
     const activeCollection = ref<null | number>(0);
-    const activeGame = ref<null | number>(null);
+    const activeGame = ref<null | number>(0);
 
 
     // ---- Getters ----------------------------------------------------
     const getCollections = computed(() => {
-        return collections.value
+        return collections.value.length ? collections.value : [{ id: -1, name: "No collection yet.",         sort_order: -1,  }]
     });
 
+    let mm = "";
     const getGames = computed(() => {
+
+        if (Object.keys(collections.value).length === 0) {
+            mm = "No game yet."
+        } else if (activeCollection.value === 0) {
+            mm = "Select a collection."
+        } else {
+            mm = "No games in this collection."
+        }
+        
+        
         return (collectionId: number | string) => {
-            return games.value[collectionId] ?? [];
+            return games.value[collectionId] ?? [{ id: -1, name: mm  },] as Game[];
         };
     });
 

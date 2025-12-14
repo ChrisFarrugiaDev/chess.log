@@ -19,7 +19,7 @@
 
 
             <!-- Actions -->
-            <div class="games__actions" v-if="getGameId == game.id">
+            <div class="games__actions" v-if="getGameId == game.id && game.id != -1">
                 <!-- Edit / Save / Cancel -->
                 <template v-if="editingGameId === Number(game.id) || deletingGameId === Number(game.id)">
                     <svg class="games__btn games__btn--ok" @click.stop="editOrDelete(game)">

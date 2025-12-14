@@ -83,6 +83,7 @@ async function loadGame() {
 watch(
 	() => props.gameId,
 	async () => {
+		currentPostion.value = 0;
 		loadGame();	
 	},
 	{ immediate: true }

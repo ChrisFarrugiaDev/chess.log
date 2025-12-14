@@ -20,7 +20,7 @@
             </div>
 
             <!-- Action buttons -->
-            <div class="collections__actions" v-if="collection.id == getActiveCollection">
+            <div class="collections__actions" v-if="collection.id == getActiveCollection && collection.id != -1">
                 <template v-if="editingId === Number(collection.id) || deletingId === Number(collection.id)">
                     <svg class="collections__btn collections__btn--ok" @click.stop="editOrDelete(collection)">
                         <use xlink:href="@/ui/svg/sprite.svg#icon-very-good"></use>
